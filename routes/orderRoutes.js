@@ -6,7 +6,6 @@ const {
   updateOrderStatus,
   deleteOrder,
 } = require("../controllers/orderController");
-const { paymentSuccess } = require("../controllers/paymentController");
 
 const orderRouter = express.Router();
 
@@ -15,6 +14,5 @@ orderRouter.get("/orders", getOrders);
 orderRouter.get("/order/:id", getOrderById);
 orderRouter.put("/order/:id", updateOrderStatus);
 orderRouter.delete("/order/:id", deleteOrder);
-orderRouter.post("/success", paymentSuccess);
 
 module.exports = orderRouter;

@@ -48,13 +48,37 @@ const updateCategory = handler(async (req, res) => {
   }
 
   const { name, parent_category } = req.body;
+
+  // Update name if provided
   category.name = name || category.name;
-  category.parent_category = parent_category !== undefined ? parent_category : category.parent_category;
+
+  // Handle parent_category: set to null if empty string or undefined
+  category.parent_category =
+    parent_category === "" || parent_category === undefined
+      ? null
+      : parent_category;
+
+  // Validate parent_category if provided
+  if (parent_category && parent_category !== "") {
+    if (!mongoose.isValidObjectId(parent_category)) {
+      res.status(400);
+      throw new Error("Invalid parent category ID");
+    }
+    const parentExists = await Category.findById(parent_category);
+    if (!parentExists) {
+      res.status(404);
+      throw new Error("Parent category not found");
+    }
+    // Prevent a category from being its own parent
+    if (parent_category === req.params.id) {
+      res.status(400);
+      throw new Error("Category cannot be its own parent");
+    }
+  }
 
   const updatedCategory = await category.save();
   res.status(200).json(updatedCategory);
 });
-
 const deleteCategory = handler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
     res.status(400);

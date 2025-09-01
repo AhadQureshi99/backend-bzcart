@@ -13,7 +13,6 @@ const app = express();
 require("dotenv").config();
 require("colors");
 
-// Configure CORS
 app.use(
   cors({
     origin: [
@@ -23,12 +22,16 @@ app.use(
       "https://bz-cart-d-ashboard.vercel.app",
       "https://bz-cart.vercel.app",
       "https://www.bzcart.store",
+      "https://bzcart.store",
       "https://www.dashboard.bzcart.store",
+      "https://dashboard.bzcart.store",
+      "https://api.bzcart.store", // ✅ yeh add karo
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
+
 
 // Connect to MongoDB
 connectDB();

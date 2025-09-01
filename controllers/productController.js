@@ -3,22 +3,128 @@ const productModel = require("../models/productModel");
 const cartModel = require("../models/cartModel");
 const reviewModel = require("../models/reviewModel");
 const Category = require("../models/categoryModel");
-const path = require("path");
 const mongoose = require("mongoose");
 
-// Debug: Log the resolved path for userModel
-const userModelPath = path.resolve(__dirname, "../models/userModel.js");
-console.log("Attempting to import User model from:", userModelPath);
+const addToCart = handler(async (req, res) => {
+  console.log("addToCart - Request body:", req.body);
 
-let User;
-try {
-  User = require("../models/userModel");
-  console.log("User model imported successfully:", !!User);
-} catch (error) {
-  console.error("Failed to import User model:", error.message);
-  throw new Error("Server configuration error: User model not found");
-}
+  const { product_id, selected_image, guestId } = req.body;
+  const user_id = req.user?._id;
 
+  if (!product_id || !selected_image) {
+    console.log("addToCart - Missing required fields:", { product_id, selected_image });
+    res.status(400);
+    throw new Error("Product ID and selected image are required");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(product_id)) {
+    console.log("addToCart - Invalid product_id:", product_id);
+    res.status(400);
+    throw new Error("Invalid product ID format");
+  }
+
+  const product = await productModel.findById(product_id);
+  if (!product) {
+    console.log("addToCart - Product not found for ID:", product_id);
+    res.status(404);
+    throw new Error("Product not found");
+  }
+
+  let cart;
+  const query = guestId ? { guest_id: guestId, product_id, selected_image } : { user_id, product_id, selected_image };
+
+  cart = await cartModel.findOne(query);
+
+  if (cart) {
+    console.log("addToCart - Incrementing quantity for existing cart item:", cart._id);
+    cart.quantity += 1;
+    await cart.save();
+  } else {
+    console.log("addToCart - Creating new cart item:", { user_id, guestId, product_id, selected_image });
+    cart = await cartModel.create({
+      user_id: user_id || undefined,
+      guest_id: guestId || undefined,
+      product_id,
+      selected_image,
+      quantity: 1,
+    });
+  }
+
+  const populatedCart = await cartModel.findById(cart._id).populate("product_id");
+  res.status(200).json(populatedCart);
+});
+
+const getMyCart = handler(async (req, res) => {
+  const user_id = req.user?._id;
+  const { guestId } = req.query;
+
+  console.log("getMyCart called with:", { user_id, guestId });
+
+  if (!user_id && !guestId) {
+    res.status(400);
+    throw new Error("User or guest ID required");
+  }
+
+  const query = user_id ? { user_id } : { guest_id: guestId };
+  const carts = await cartModel.find(query).populate("product_id");
+  res.status(200).json(carts);
+});
+
+const removeFromCart = handler(async (req, res) => {
+  const { product_id, selected_image, guestId } = req.body;
+  const user_id = req.user?._id;
+
+  console.log("removeFromCart called with:", { product_id, selected_image, user_id, guestId });
+
+  if (!product_id || !selected_image) {
+    console.log("removeFromCart - Missing required fields:", { product_id, selected_image });
+    res.status(400);
+    throw new Error("Product ID and selected image are required");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(product_id)) {
+    console.log("removeFromCart - Invalid product_id:", product_id);
+    res.status(400);
+    throw new Error("Invalid product ID format");
+  }
+
+  const query = user_id ? { user_id, product_id, selected_image } : { guest_id: guestId, product_id, selected_image };
+  let cart = await cartModel.findOne(query);
+
+  if (!cart) {
+    console.log("removeFromCart - Cart item not found:", { product_id, selected_image });
+    res.status(404);
+    throw new Error("Cart item not found");
+  }
+
+  if (cart.quantity > 1) {
+    cart.quantity -= 1;
+    await cart.save();
+  } else {
+    await cartModel.deleteOne({ _id: cart._id });
+  }
+
+  const updatedCarts = await cartModel.find(user_id ? { user_id } : { guest_id: guestId }).populate("product_id");
+  res.status(200).json(updatedCarts);
+});
+
+const clearCart = handler(async (req, res) => {
+  const user_id = req.user?._id;
+  const { guestId } = req.query;
+
+  console.log("clearCart called with:", { user_id, guestId });
+
+  if (!user_id && !guestId) {
+    res.status(400);
+    throw new Error("User or guest ID required");
+  }
+
+  const query = user_id ? { user_id } : { guest_id: guestId };
+  await cartModel.deleteMany(query);
+  res.status(200).json([]);
+});
+
+// Other functions remain unchanged
 const createProduct = handler(async (req, res) => {
   const {
     product_name,
@@ -258,173 +364,6 @@ const deleteProduct = handler(async (req, res) => {
   await reviewModel.deleteMany({ product_id: req.params.id });
   await productModel.findByIdAndDelete(req.params.id);
   res.status(200).json({ message: "Product deleted successfully" });
-});
-
-const addToCart = handler(async (req, res) => {
-  console.log("addToCart - Request body:", req.body);
-
-  const { user_id, product_id, selected_image } = req.body;
-
-  if (!user_id || !product_id || !selected_image) {
-    console.log("addToCart - Missing required fields:", {
-      user_id,
-      product_id,
-      selected_image,
-    });
-    res.status(400);
-    throw new Error(
-      "All fields (user_id, product_id, selected_image) are required"
-    );
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(product_id)) {
-    console.log("addToCart - Invalid product_id:", product_id);
-    res.status(400);
-    throw new Error("Invalid product ID format");
-  }
-
-  let user;
-  try {
-    user = await User.findById(user_id);
-  } catch (error) {
-    console.error("addToCart - Error finding user:", error.message);
-    res.status(500);
-    throw new Error("Server error while validating user");
-  }
-  if (!user) {
-    console.log("addToCart - User not found for ID:", user_id);
-    res.status(404);
-    throw new Error("User not found");
-  }
-
-  const product = await productModel.findById(product_id);
-  if (!product) {
-    console.log("addToCart - Product not found for ID:", product_id);
-    res.status(404);
-    throw new Error("Product not found");
-  }
-
-  let cart = await cartModel.findOne({
-    user_id,
-    product_id,
-    selected_image,
-  });
-
-  if (cart) {
-    console.log(
-      "addToCart - Incrementing quantity for existing cart item:",
-      cart._id
-    );
-    cart.quantity += 1;
-    await cart.save();
-  } else {
-    console.log("addToCart - Creating new cart item:", {
-      user_id,
-      product_id,
-      selected_image,
-    });
-    cart = await cartModel.create({
-      user_id,
-      product_id,
-      selected_image,
-      quantity: 1,
-    });
-  }
-
-  try {
-    console.log("addToCart - Cart saved successfully:", cart);
-  } catch (error) {
-    console.error("addToCart - Error saving cart:", error.message);
-    res.status(500);
-    throw new Error("Server error while saving cart: " + error.message);
-  }
-
-  const populatedCart = await cartModel
-    .findById(cart._id)
-    .populate("product_id");
-  res.status(200).json(populatedCart);
-});
-
-const getMyCart = handler(async (req, res) => {
-  const user_id = req.user?._id;
-  console.log("getMyCart called for user:", user_id);
-
-  if (!user_id) {
-    res.status(401);
-    throw new Error("User not authenticated");
-  }
-
-  const carts = await cartModel.find({ user_id }).populate("product_id");
-  res.status(200).json(carts);
-});
-
-const removeFromCart = handler(async (req, res) => {
-  const { product_id, selected_image } = req.body;
-  const user_id = req.user?._id;
-
-  console.log("removeFromCart called with:", {
-    product_id,
-    selected_image,
-    user_id,
-  });
-
-  if (!user_id) {
-    res.status(401);
-    throw new Error("User not authenticated");
-  }
-
-  if (!product_id || !selected_image) {
-    console.log("removeFromCart - Missing required fields:", {
-      product_id,
-      selected_image,
-    });
-    res.status(400);
-    throw new Error("All fields (product_id, selected_image) are required");
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(product_id)) {
-    console.log("removeFromCart - Invalid product_id:", product_id);
-    res.status(400);
-    throw new Error("Invalid product ID format");
-  }
-
-  let cart = await cartModel.findOne({
-    user_id,
-    product_id,
-    selected_image,
-  });
-
-  if (!cart) {
-    console.log("removeFromCart - Cart item not found:", {
-      product_id,
-      selected_image,
-    });
-    res.status(404);
-    throw new Error("Cart item not found");
-  }
-
-  if (cart.quantity > 1) {
-    cart.quantity -= 1;
-    await cart.save();
-  } else {
-    await cartModel.deleteOne({ _id: cart._id });
-  }
-
-  const updatedCarts = await cartModel.find({ user_id }).populate("product_id");
-  res.status(200).json(updatedCarts);
-});
-
-const clearCart = handler(async (req, res) => {
-  const user_id = req.user?._id;
-  console.log("clearCart called for user:", user_id);
-
-  if (!user_id) {
-    res.status(401);
-    throw new Error("User not authenticated");
-  }
-
-  await cartModel.deleteMany({ user_id });
-  res.status(200).json([]);
 });
 
 const submitReview = handler(async (req, res) => {

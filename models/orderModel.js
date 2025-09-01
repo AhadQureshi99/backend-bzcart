@@ -4,6 +4,14 @@ const orderSchema = mongoose.Schema(
   {
     user_id: {
       type: String,
+      required: false,
+    },
+    guest_id: {
+      type: String,
+      required: false,
+    },
+    full_name: {
+      type: String,
       required: true,
     },
     products: [
@@ -36,7 +44,7 @@ const orderSchema = mongoose.Schema(
     payment_status: {
       type: String,
       enum: ["pending", "completed", "failed"],
-      default: "pending",
+      default: "completed", // Default to completed since no payment processing
     },
     shipping_address: {
       type: String,
@@ -51,10 +59,6 @@ const orderSchema = mongoose.Schema(
       type: String,
       required: true,
       match: [/^\+?\d{10,15}$/, "Please provide a valid phone number"],
-    },
-    stripe_session_id: {
-      type: String,
-      required: false,
     },
     createdAt: {
       type: Date,
