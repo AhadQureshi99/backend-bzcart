@@ -2,7 +2,6 @@ const handler = require("express-async-handler");
 const slideModel = require("../models/slideModel");
 const cloudinary = require("cloudinary").v2;
 
-// Validate Cloudinary configuration
 const validateCloudinaryConfig = () => {
   const requiredEnvVars = {
     cloud_name: process.env.Cloud_Name,
@@ -43,24 +42,17 @@ const createSlide = handler(async (req, res) => {
       : "No files received"
   );
 
-  const { title, subtitle, buttonText, link } = req.body;
+  const { title, subtitle, buttonText, link, bgColor, size } = req.body;
 
-  if (!title || !subtitle || !buttonText || !req.files?.image) {
-    console.error("Missing required fields:", {
-      title: !!title,
-      subtitle: !!subtitle,
-      buttonText: !!buttonText,
-      image: !!req.files?.image,
-    });
+  if (!req.files?.image) {
+    console.error("Missing required field:", { image: !!req.files?.image });
     res.status(400);
-    throw new Error("Please provide all required fields, including an image");
+    throw new Error("Please provide an image");
   }
 
   try {
-    // Validate Cloudinary configuration
     validateCloudinaryConfig();
 
-    // Upload main image to Cloudinary
     const imageResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         { folder: "slides" },
@@ -76,36 +68,14 @@ const createSlide = handler(async (req, res) => {
       stream.end(req.files.image[0].buffer);
     });
 
-    // Upload background image to Cloudinary if provided
-    let backgroundUrl = null;
-    if (req.files?.background) {
-      const backgroundResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: "slide_backgrounds" },
-          (error, result) => {
-            if (error) {
-              console.error(
-                "Cloudinary upload error (background):",
-                error.message
-              );
-              reject(new Error(`Cloudinary error: ${error.message}`));
-            } else {
-              resolve(result);
-            }
-          }
-        );
-        stream.end(req.files.background[0].buffer);
-      });
-      backgroundUrl = backgroundResult.secure_url;
-    }
-
     const slide = await slideModel.create({
-      title,
-      subtitle,
-      buttonText,
+      title: title || undefined,
+      subtitle: subtitle || undefined,
+      buttonText: buttonText || undefined,
       image: imageResult.secure_url,
       link: link || "/products",
-      background: backgroundUrl,
+      bgColor: bgColor || "#ffffff",
+      size: size || "medium",
     });
 
     res.status(201).json({
@@ -115,7 +85,8 @@ const createSlide = handler(async (req, res) => {
       buttonText: slide.buttonText,
       image: slide.image,
       link: slide.link,
-      background: slide.background,
+      bgColor: slide.bgColor,
+      size: slide.size,
       createdAt: slide.createdAt,
     });
   } catch (error) {
@@ -162,10 +133,9 @@ const updateSlide = handler(async (req, res) => {
     throw new Error("Slide not found");
   }
 
-  const { title, subtitle, buttonText, link } = req.body;
+  const { title, subtitle, buttonText, link, bgColor, size } = req.body;
 
   try {
-    // Validate Cloudinary configuration
     validateCloudinaryConfig();
 
     let imageUrl = slide.image;
@@ -187,28 +157,6 @@ const updateSlide = handler(async (req, res) => {
       imageUrl = imageResult.secure_url;
     }
 
-    let backgroundUrl = slide.background;
-    if (req.files?.background) {
-      const backgroundResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: "slide_backgrounds" },
-          (error, result) => {
-            if (error) {
-              console.error(
-                "Cloudinary upload error (background):",
-                error.message
-              );
-              reject(new Error(`Cloudinary error: ${error.message}`));
-            } else {
-              resolve(result);
-            }
-          }
-        );
-        stream.end(req.files.background[0].buffer);
-      });
-      backgroundUrl = backgroundResult.secure_url;
-    }
-
     const updatedSlide = await slideModel.findByIdAndUpdate(
       req.params.id,
       {
@@ -217,7 +165,8 @@ const updateSlide = handler(async (req, res) => {
         buttonText: buttonText || slide.buttonText,
         image: imageUrl,
         link: link || slide.link,
-        background: backgroundUrl,
+        bgColor: bgColor || slide.bgColor,
+        size: size || slide.size,
       },
       { new: true }
     );

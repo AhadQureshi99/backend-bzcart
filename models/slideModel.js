@@ -1,12 +1,14 @@
 const mongoose = require("mongoose");
 
 const slideSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  subtitle: { type: String, required: true },
-  buttonText: { type: String, required: true },
-  image: { type: String, required: true },
+  title: { type: String },
+  subtitle: { type: String },
+  buttonText: { type: String },
+  image: { type: String, required: true }, // Desktop image
+  mobileImage: { type: String }, // Mobile image
   link: { type: String, default: "/products" },
-  background: { type: String }, // Optional field for background image URL
+  bgColor: { type: String, default: "#ffffff" },
+  size: { type: String, enum: ["medium", "large"], default: "medium" }, // Match your select options
   createdAt: { type: Date, default: Date.now },
 });
 

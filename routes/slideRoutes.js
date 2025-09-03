@@ -13,7 +13,7 @@ const slideRouter = express.Router();
 slideRouter.post("/create-slide", createSlide);
 slideRouter.get("/slides", getSlides);
 slideRouter.get("/slide/:id", authHandler, getSlideById);
-slideRouter.put("/slide/:id",  updateSlide);
-slideRouter.delete("/slide/:id",  deleteSlide);
+slideRouter.put("/slide/:id", updateSlide);
+slideRouter.delete("/slide/:id", deleteSlide);
 
 module.exports = slideRouter;
