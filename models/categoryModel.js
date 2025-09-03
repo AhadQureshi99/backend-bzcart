@@ -8,6 +8,7 @@ const categorySchema = new mongoose.Schema({
     default: null,
   },
   subcategories: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category" }],
+  image: { type: String, default: "" }, // Single image URL
 });
 
 module.exports = mongoose.model("Category", categorySchema);

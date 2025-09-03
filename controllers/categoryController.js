@@ -4,7 +4,7 @@ const Product = require("../models/productModel");
 const mongoose = require("mongoose");
 
 const createCategory = handler(async (req, res) => {
-  const { name, parent_category } = req.body;
+  const { name, parent_category, image } = req.body;
   if (!name) {
     res.status(400);
     throw new Error("Category name is required");
@@ -13,6 +13,7 @@ const createCategory = handler(async (req, res) => {
   const category = await Category.create({
     name,
     parent_category: parent_category || null,
+    image: image || "",
   });
 
   res.status(201).json(category);
@@ -47,16 +48,19 @@ const updateCategory = handler(async (req, res) => {
     throw new Error("Category not found");
   }
 
-  const { name, parent_category } = req.body;
+  const { name, parent_category, image } = req.body;
 
   // Update name if provided
   category.name = name || category.name;
 
-  // Handle parent_category: set to null if empty string or undefined
+  // Handle parent_category
   category.parent_category =
     parent_category === "" || parent_category === undefined
       ? null
       : parent_category;
+
+  // Handle image update
+  category.image = image || category.image;
 
   // Validate parent_category if provided
   if (parent_category && parent_category !== "") {
@@ -69,7 +73,6 @@ const updateCategory = handler(async (req, res) => {
       res.status(404);
       throw new Error("Parent category not found");
     }
-    // Prevent a category from being its own parent
     if (parent_category === req.params.id) {
       res.status(400);
       throw new Error("Category cannot be its own parent");
@@ -79,6 +82,7 @@ const updateCategory = handler(async (req, res) => {
   const updatedCategory = await category.save();
   res.status(200).json(updatedCategory);
 });
+
 const deleteCategory = handler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
     res.status(400);
