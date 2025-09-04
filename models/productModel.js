@@ -59,6 +59,11 @@ const productSchema = mongoose.Schema(
         ref: "Review",
       },
     ],
+    bg_color: {
+      type: String,
+      required: false,
+      default: "#FFFFFF", // Default to white or any preferred color
+    },
   },
   {
     timestamps: true,

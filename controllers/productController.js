@@ -124,7 +124,6 @@ const clearCart = handler(async (req, res) => {
   res.status(200).json([]);
 });
 
-// Other functions remain unchanged
 const createProduct = handler(async (req, res) => {
   const {
     product_name,
@@ -138,6 +137,7 @@ const createProduct = handler(async (req, res) => {
     brand_name,
     product_code,
     rating,
+    bg_color, // Add bg_color
   } = req.body;
 
   if (
@@ -190,6 +190,14 @@ const createProduct = handler(async (req, res) => {
     throw new Error("Discounted price cannot be higher than base price");
   }
 
+  // Optional: Validate bg_color format (e.g., hex code)
+  if (bg_color && !/^#[0-9A-F]{6}$/i.test(bg_color)) {
+    res.status(400);
+    throw new Error(
+      "Invalid background color format. Use a hex code (e.g., #FFFFFF)"
+    );
+  }
+
   const product = await productModel.create({
     product_name,
     product_description: product_description || "",
@@ -203,6 +211,7 @@ const createProduct = handler(async (req, res) => {
     product_code,
     rating: Number(rating) || 4,
     reviews: [],
+    bg_color: bg_color || "#FFFFFF", // Use provided bg_color or default
   });
 
   const populatedProduct = await productModel
@@ -269,6 +278,7 @@ const updateProduct = handler(async (req, res) => {
     brand_name,
     product_code,
     rating,
+    bg_color, // Add bg_color
   } = req.body;
 
   if (category) {
@@ -326,6 +336,14 @@ const updateProduct = handler(async (req, res) => {
     throw new Error("Discounted price cannot be higher than base price");
   }
 
+  // Optional: Validate bg_color format
+  if (bg_color && !/^#[0-9A-F]{6}$/i.test(bg_color)) {
+    res.status(400);
+    throw new Error(
+      "Invalid background color format. Use a hex code (e.g., #FFFFFF)"
+    );
+  }
+
   const updatedProduct = await productModel
     .findByIdAndUpdate(
       req.params.id,
@@ -344,6 +362,7 @@ const updateProduct = handler(async (req, res) => {
         brand_name: brand_name || product.brand_name,
         product_code: product_code || product.product_code,
         rating: Number(rating) || product.rating,
+        bg_color: bg_color || product.bg_color, // Update bg_color
       },
       { new: true }
     )
