@@ -8,7 +8,11 @@ const slideSchema = new mongoose.Schema({
   mobileImage: { type: String }, // Mobile image
   link: { type: String, default: "/products" },
   bgColor: { type: String, default: "#ffffff" },
-  size: { type: String, enum: ["medium", "large"], default: "medium" }, // Match your select options
+  titleColor: { type: String, default: "#000000" },
+  subtitleColor: { type: String, default: "#000000" },
+  buttonBgColor: { type: String, default: "#ffffff" },
+  buttonTextColor: { type: String, default: "#000000" },
+  size: { type: String, enum: ["small", "medium", "large"], default: "medium" },
   createdAt: { type: Date, default: Date.now },
 });
 

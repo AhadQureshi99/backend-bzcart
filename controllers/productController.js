@@ -12,7 +12,10 @@ const addToCart = handler(async (req, res) => {
   const user_id = req.user?._id;
 
   if (!product_id || !selected_image) {
-    console.log("addToCart - Missing required fields:", { product_id, selected_image });
+    console.log("addToCart - Missing required fields:", {
+      product_id,
+      selected_image,
+    });
     res.status(400);
     throw new Error("Product ID and selected image are required");
   }
@@ -31,16 +34,26 @@ const addToCart = handler(async (req, res) => {
   }
 
   let cart;
-  const query = guestId ? { guest_id: guestId, product_id, selected_image } : { user_id, product_id, selected_image };
+  const query = guestId
+    ? { guest_id: guestId, product_id, selected_image }
+    : { user_id, product_id, selected_image };
 
   cart = await cartModel.findOne(query);
 
   if (cart) {
-    console.log("addToCart - Incrementing quantity for existing cart item:", cart._id);
+    console.log(
+      "addToCart - Incrementing quantity for existing cart item:",
+      cart._id
+    );
     cart.quantity += 1;
     await cart.save();
   } else {
-    console.log("addToCart - Creating new cart item:", { user_id, guestId, product_id, selected_image });
+    console.log("addToCart - Creating new cart item:", {
+      user_id,
+      guestId,
+      product_id,
+      selected_image,
+    });
     cart = await cartModel.create({
       user_id: user_id || undefined,
       guest_id: guestId || undefined,
@@ -50,7 +63,9 @@ const addToCart = handler(async (req, res) => {
     });
   }
 
-  const populatedCart = await cartModel.findById(cart._id).populate("product_id");
+  const populatedCart = await cartModel
+    .findById(cart._id)
+    .populate("product_id");
   res.status(200).json(populatedCart);
 });
 
@@ -74,10 +89,18 @@ const removeFromCart = handler(async (req, res) => {
   const { product_id, selected_image, guestId } = req.body;
   const user_id = req.user?._id;
 
-  console.log("removeFromCart called with:", { product_id, selected_image, user_id, guestId });
+  console.log("removeFromCart called with:", {
+    product_id,
+    selected_image,
+    user_id,
+    guestId,
+  });
 
   if (!product_id || !selected_image) {
-    console.log("removeFromCart - Missing required fields:", { product_id, selected_image });
+    console.log("removeFromCart - Missing required fields:", {
+      product_id,
+      selected_image,
+    });
     res.status(400);
     throw new Error("Product ID and selected image are required");
   }
@@ -88,11 +111,16 @@ const removeFromCart = handler(async (req, res) => {
     throw new Error("Invalid product ID format");
   }
 
-  const query = user_id ? { user_id, product_id, selected_image } : { guest_id: guestId, product_id, selected_image };
+  const query = user_id
+    ? { user_id, product_id, selected_image }
+    : { guest_id: guestId, product_id, selected_image };
   let cart = await cartModel.findOne(query);
 
   if (!cart) {
-    console.log("removeFromCart - Cart item not found:", { product_id, selected_image });
+    console.log("removeFromCart - Cart item not found:", {
+      product_id,
+      selected_image,
+    });
     res.status(404);
     throw new Error("Cart item not found");
   }
@@ -104,7 +132,9 @@ const removeFromCart = handler(async (req, res) => {
     await cartModel.deleteOne({ _id: cart._id });
   }
 
-  const updatedCarts = await cartModel.find(user_id ? { user_id } : { guest_id: guestId }).populate("product_id");
+  const updatedCarts = await cartModel
+    .find(user_id ? { user_id } : { guest_id: guestId })
+    .populate("product_id");
   res.status(200).json(updatedCarts);
 });
 
@@ -124,7 +154,6 @@ const clearCart = handler(async (req, res) => {
   res.status(200).json([]);
 });
 
-// Other functions remain unchanged
 const createProduct = handler(async (req, res) => {
   const {
     product_name,
@@ -138,6 +167,7 @@ const createProduct = handler(async (req, res) => {
     brand_name,
     product_code,
     rating,
+    bg_color,
   } = req.body;
 
   if (
@@ -190,6 +220,13 @@ const createProduct = handler(async (req, res) => {
     throw new Error("Discounted price cannot be higher than base price");
   }
 
+  if (bg_color && !/^#[0-9A-F]{6}$/i.test(bg_color)) {
+    res.status(400);
+    throw new Error(
+      "Invalid background color format. Use a hex code (e.g., #FFFFFF)"
+    );
+  }
+
   const product = await productModel.create({
     product_name,
     product_description: product_description || "",
@@ -203,6 +240,7 @@ const createProduct = handler(async (req, res) => {
     product_code,
     rating: Number(rating) || 4,
     reviews: [],
+    bg_color: bg_color || "#FFFFFF",
   });
 
   const populatedProduct = await productModel
@@ -269,6 +307,7 @@ const updateProduct = handler(async (req, res) => {
     brand_name,
     product_code,
     rating,
+    bg_color,
   } = req.body;
 
   if (category) {
@@ -326,6 +365,13 @@ const updateProduct = handler(async (req, res) => {
     throw new Error("Discounted price cannot be higher than base price");
   }
 
+  if (bg_color && !/^#[0-9A-F]{6}$/i.test(bg_color)) {
+    res.status(400);
+    throw new Error(
+      "Invalid background color format. Use a hex code (e.g., #FFFFFF)"
+    );
+  }
+
   const updatedProduct = await productModel
     .findByIdAndUpdate(
       req.params.id,
@@ -344,6 +390,7 @@ const updateProduct = handler(async (req, res) => {
         brand_name: brand_name || product.brand_name,
         product_code: product_code || product.product_code,
         rating: Number(rating) || product.rating,
+        bg_color: bg_color || product.bg_color,
       },
       { new: true }
     )
@@ -355,14 +402,33 @@ const updateProduct = handler(async (req, res) => {
 });
 
 const deleteProduct = handler(async (req, res) => {
+  console.log("deleteProduct - Request params:", req.params);
+
   const product = await productModel.findById(req.params.id);
   if (!product) {
+    console.log("deleteProduct - Product not found for ID:", req.params.id);
     res.status(404);
     throw new Error("Product not found");
   }
 
+  // Check admin privileges
+  const user = req.user;
+  if (!user || !["superadmin", "admin"].includes(user.role)) {
+    console.log("deleteProduct - Access denied for user:", user?._id);
+    res.status(403);
+    throw new Error("Admin privileges required");
+  }
+
+  // Delete associated reviews
   await reviewModel.deleteMany({ product_id: req.params.id });
+
+  // Delete the product from all carts
+  await cartModel.deleteMany({ product_id: req.params.id });
+
+  // Delete the product
   await productModel.findByIdAndDelete(req.params.id);
+
+  console.log("deleteProduct - Product deleted successfully:", req.params.id);
   res.status(200).json({ message: "Product deleted successfully" });
 });
 

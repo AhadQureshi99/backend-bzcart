@@ -42,7 +42,18 @@ const createSlide = handler(async (req, res) => {
       : "No files received"
   );
 
-  const { title, subtitle, buttonText, link, bgColor, size } = req.body;
+  const {
+    title,
+    subtitle,
+    buttonText,
+    link,
+    bgColor,
+    titleColor,
+    subtitleColor,
+    buttonBgColor,
+    buttonTextColor,
+    size,
+  } = req.body;
 
   if (!req.files?.image) {
     console.error("Missing required field:", { image: !!req.files?.image });
@@ -75,6 +86,10 @@ const createSlide = handler(async (req, res) => {
       image: imageResult.secure_url,
       link: link || "/products",
       bgColor: bgColor || "#ffffff",
+      titleColor: titleColor || "#000000",
+      subtitleColor: subtitleColor || "#000000",
+      buttonBgColor: buttonBgColor || "#ffffff",
+      buttonTextColor: buttonTextColor || "#000000",
       size: size || "medium",
     });
 
@@ -86,6 +101,10 @@ const createSlide = handler(async (req, res) => {
       image: slide.image,
       link: slide.link,
       bgColor: slide.bgColor,
+      titleColor: slide.titleColor,
+      subtitleColor: slide.subtitleColor,
+      buttonBgColor: slide.buttonBgColor,
+      buttonTextColor: slide.buttonTextColor,
       size: slide.size,
       createdAt: slide.createdAt,
     });
@@ -133,7 +152,18 @@ const updateSlide = handler(async (req, res) => {
     throw new Error("Slide not found");
   }
 
-  const { title, subtitle, buttonText, link, bgColor, size } = req.body;
+  const {
+    title,
+    subtitle,
+    buttonText,
+    link,
+    bgColor,
+    titleColor,
+    subtitleColor,
+    buttonBgColor,
+    buttonTextColor,
+    size,
+  } = req.body;
 
   try {
     validateCloudinaryConfig();
@@ -166,6 +196,10 @@ const updateSlide = handler(async (req, res) => {
         image: imageUrl,
         link: link || slide.link,
         bgColor: bgColor || slide.bgColor,
+        titleColor: titleColor || slide.titleColor,
+        subtitleColor: subtitleColor || slide.subtitleColor,
+        buttonBgColor: buttonBgColor || slide.buttonBgColor,
+        buttonTextColor: buttonTextColor || slide.buttonTextColor,
         size: size || slide.size,
       },
       { new: true }

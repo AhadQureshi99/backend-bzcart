@@ -6,6 +6,7 @@ const slideRouter = require("./routes/slideRoutes");
 const categoryRouter = require("./routes/categoryRoutes");
 const productRouter = require("./routes/productRoutes");
 const brandRouter = require("./routes/brandRoutes");
+const reelRouter = require("./routes/reelRoutes");
 const multer = require("multer");
 
 const app = express();
@@ -76,6 +77,7 @@ app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/slides", upload, slideRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/brands", brandRouter);
+app.use("/api/reel", reelRouter);
 
 // Apply multer error handling after routes
 app.use(handleMulterError);
