@@ -7,6 +7,8 @@ const categoryRouter = require("./routes/categoryRoutes");
 const productRouter = require("./routes/productRoutes");
 const brandRouter = require("./routes/brandRoutes");
 const reelRouter = require("./routes/reelRoutes");
+const dealRoutes = require("./routes/dealRoutes"); // Add this line
+
 const multer = require("multer");
 
 const app = express();
@@ -78,6 +80,7 @@ app.use("/api/slides", upload, slideRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/brands", brandRouter);
 app.use("/api/reel", reelRouter);
+app.use("/api", dealRoutes);
 
 // Apply multer error handling after routes
 app.use(handleMulterError);

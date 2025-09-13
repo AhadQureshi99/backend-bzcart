@@ -199,6 +199,15 @@ const verifyOTP = handler(async (req, res) => {
   }
 });
 
+const getAllUsers = handler(async (req, res) => {
+  const users = await userModel.find({}, "_id username email role").lean();
+  if (!users || users.length === 0) {
+    res.status(404);
+    throw new Error("No users found");
+  }
+  res.send(users);
+});
+
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: "15d",
@@ -209,4 +218,5 @@ module.exports = {
   registerUser,
   loginUser,
   verifyOTP,
+  getAllUsers,
 };

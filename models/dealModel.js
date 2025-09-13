@@ -1,29 +1,29 @@
 const mongoose = require("mongoose");
 
-const productSchema = mongoose.Schema(
+const dealSchema = mongoose.Schema(
   {
-    product_name: {
+    deal_name: {
       type: String,
       required: true,
     },
-    product_description: {
+    deal_description: {
       type: String,
       required: true,
     },
-    product_base_price: {
+    original_price: {
       type: Number,
       required: true,
     },
-    product_discounted_price: {
+    deal_price: {
       type: Number,
       required: true,
     },
-    product_stock: {
+    deal_stock: {
       type: Number,
       required: true,
       default: 0,
     },
-    product_images: {
+    deal_images: {
       type: Array,
       required: true,
       default: [],
@@ -33,17 +33,7 @@ const productSchema = mongoose.Schema(
       ref: "Category",
       required: true,
     },
-    subcategories: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Category",
-      },
-    ],
-    brand_name: {
-      type: String,
-      required: true,
-    },
-    product_code: {
+    deal_code: {
       type: String,
       required: true,
       unique: true,
@@ -59,10 +49,14 @@ const productSchema = mongoose.Schema(
         ref: "Review",
       },
     ],
+    deal_expiry: {
+      type: Date,
+      required: true,
+    },
     bg_color: {
       type: String,
       required: false,
-      default: "#FFFFFF", // Default to white or any preferred color
+      default: "#FFFFFF",
     },
   },
   {
@@ -70,4 +64,4 @@ const productSchema = mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Product", productSchema);
+module.exports = mongoose.model("Deal", dealSchema);
