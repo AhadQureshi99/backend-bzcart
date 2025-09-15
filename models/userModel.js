@@ -15,11 +15,6 @@ const userSchema = mongoose.Schema(
       type: String,
       required: true,
     },
-    otp: {
-      type: Number,
-      required: false,
-      default: null,
-    },
     role: {
       type: String,
       default: "user",

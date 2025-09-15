@@ -1,5 +1,6 @@
 const handler = require("express-async-handler");
 const userModel = require("../models/userModel");
+const tempUserModel = require("../models/tempUserModel"); // New model
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
@@ -10,7 +11,7 @@ const generateOTP = () => {
   return FloorNum;
 };
 
-const sendOTP = (email, otp, id) => {
+const sendOTP = (email, otp) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -22,7 +23,7 @@ const sendOTP = (email, otp, id) => {
   const mailOptions = {
     from: process.env.MAIL_USER,
     to: email,
-    subject: "OTP verification",
+    subject: "OTP Verification",
     html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,9 +97,10 @@ const sendOTP = (email, otp, id) => {
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      throw new Error(error.message);
+      console.error("Email error:", error);
+      throw new Error("Failed to send OTP email");
     } else {
-      console.log("Mail sent successfully!");
+      console.log("Mail sent successfully:", info.response);
     }
   });
 };
@@ -111,9 +113,11 @@ const registerUser = handler(async (req, res) => {
     throw new Error("Please enter all the fields");
   }
 
+  // Check if email already exists in permanent or temporary collection
   const findUser = await userModel.findOne({ email });
+  const findTempUser = await tempUserModel.findOne({ email });
 
-  if (findUser) {
+  if (findUser || findTempUser) {
     res.status(401);
     throw new Error("Email already exists!");
   }
@@ -121,23 +125,62 @@ const registerUser = handler(async (req, res) => {
   const hashedPass = await bcrypt.hash(password, 10);
   const myOTP = generateOTP();
 
-  const createdUser = await userModel.create({
+  // Store in temporary collection
+  const tempUser = await tempUserModel.create({
     username,
     email,
     password: hashedPass,
     otp: myOTP,
-    role: "user",
   });
 
-  sendOTP(email, myOTP, createdUser?._id);
+  sendOTP(email, myOTP);
 
   res.send({
-    _id: createdUser._id,
-    username: createdUser.username,
-    email: createdUser.email,
-    role: createdUser.role,
-    token: generateToken(createdUser._id),
+    _id: tempUser._id,
+    username: tempUser.username,
+    email: tempUser.email,
+    token: generateToken(tempUser._id),
   });
+});
+
+const verifyOTP = handler(async (req, res) => {
+  const user_id = req.user._id;
+  const { otp } = req.body;
+
+  if (!otp) {
+    res.status(400);
+    throw new Error("Please enter the OTP");
+  }
+
+  const findTempUser = await tempUserModel.findById(user_id);
+  if (!findTempUser) {
+    res.status(404);
+    throw new Error("User not found or OTP expired");
+  }
+
+  if (findTempUser.otp == otp) {
+    // Create permanent user
+    const createdUser = await userModel.create({
+      username: findTempUser.username,
+      email: findTempUser.email,
+      password: findTempUser.password,
+      role: "user",
+    });
+
+    // Delete temporary user
+    await tempUserModel.deleteOne({ _id: user_id });
+
+    res.send({
+      _id: createdUser._id,
+      username: createdUser.username,
+      email: createdUser.email,
+      role: createdUser.role,
+      token: generateToken(createdUser._id),
+    });
+  } else {
+    res.status(401);
+    throw new Error("Invalid OTP");
+  }
 });
 
 const loginUser = handler(async (req, res) => {
@@ -166,36 +209,6 @@ const loginUser = handler(async (req, res) => {
   } else {
     res.status(401);
     throw new Error("Invalid password");
-  }
-});
-
-const verifyOTP = handler(async (req, res) => {
-  const user_id = req.user._id;
-  const { otp } = req.body;
-
-  if (!otp) {
-    res.status(400);
-    throw new Error("Please enter the OTP");
-  }
-
-  const findUser = await userModel.findById(user_id);
-  if (!findUser) {
-    res.status(404);
-    throw new Error("User not found");
-  }
-  if (findUser.otp == otp) {
-    findUser.otp = null;
-    await findUser.save();
-    res.send({
-      _id: findUser._id,
-      username: findUser.username,
-      email: findUser.email,
-      role: findUser.role,
-      token: generateToken(findUser._id),
-    });
-  } else {
-    res.status(401);
-    throw new Error("Invalid OTP");
   }
 });
 
