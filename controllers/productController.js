@@ -3,6 +3,7 @@ const productModel = require("../models/productModel");
 const cartModel = require("../models/cartModel");
 const reviewModel = require("../models/reviewModel");
 const Category = require("../models/categoryModel");
+const User = require("../models/userModel");
 const mongoose = require("mongoose");
 
 const addToCart = handler(async (req, res) => {
@@ -435,23 +436,22 @@ const deleteProduct = handler(async (req, res) => {
 const submitReview = handler(async (req, res) => {
   console.log("submitReview - Request body:", req.body);
 
-  const { user_id, rating, review_text } = req.body;
+  const { user_id, rating, comment } = req.body; // Changed review_text to comment
   const product_id = req.params.productId;
 
-  if (!user_id) {
-    console.log("submitReview - No user_id provided");
+  if (!user_id || !rating || !comment) {
+    console.log("submitReview - Missing required fields:", { user_id, rating, comment });
     res.status(400);
-    throw new Error("User ID is required");
+    throw new Error("User ID, rating, and comment are required");
   }
 
-  let user;
-  try {
-    user = await User.findById(user_id);
-  } catch (error) {
-    console.error("submitReview - Error finding user:", error.message);
-    res.status(500);
-    throw new Error("Server error while validating user");
+  if (!mongoose.Types.ObjectId.isValid(user_id) || !mongoose.Types.ObjectId.isValid(product_id)) {
+    console.log("submitReview - Invalid ID format:", { user_id, product_id });
+    res.status(400);
+    throw new Error("Invalid user or product ID format");
   }
+
+  const user = await User.findById(user_id);
   if (!user) {
     console.log("submitReview - User not found for ID:", user_id);
     res.status(404);
@@ -465,17 +465,25 @@ const submitReview = handler(async (req, res) => {
     throw new Error("Product not found");
   }
 
+  // Check if user already reviewed this product
+  const existingReview = await reviewModel.findOne({ user_id, product_id });
+  if (existingReview) {
+    console.log("submitReview - User already reviewed product:", user_id);
+    res.status(400);
+    throw new Error("You have already reviewed this product");
+  }
+
   const review = await reviewModel.create({
     user_id,
     product_id,
     rating,
-    review_text,
+    comment,
   });
 
   product.reviews.push(review._id);
   const reviews = await reviewModel.find({ product_id });
   const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
-  product.rating = totalRating / reviews.length;
+  product.rating = reviews.length > 0 ? totalRating / reviews.length : 0;
   await product.save();
 
   const populatedReview = await reviewModel
@@ -488,6 +496,12 @@ const submitReview = handler(async (req, res) => {
 const getReviews = handler(async (req, res) => {
   const product_id = req.params.productId;
   console.log(`getReviews - Fetching reviews for product_id: ${product_id}`);
+
+  if (!mongoose.Types.ObjectId.isValid(product_id)) {
+    console.log("getReviews - Invalid product_id:", product_id);
+    res.status(400);
+    throw new Error("Invalid product ID format");
+  }
 
   const product = await productModel.findById(product_id);
   if (!product) {

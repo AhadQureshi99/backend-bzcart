@@ -3,7 +3,8 @@ const mongoose = require("mongoose");
 const orderSchema = mongoose.Schema(
   {
     user_id: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: false,
     },
     guest_id: {
@@ -13,6 +14,7 @@ const orderSchema = mongoose.Schema(
     full_name: {
       type: String,
       required: true,
+      trim: true,
     },
     products: [
       {
@@ -24,6 +26,7 @@ const orderSchema = mongoose.Schema(
         quantity: {
           type: Number,
           required: true,
+          min: 1,
           default: 1,
         },
         selected_image: {
@@ -35,6 +38,20 @@ const orderSchema = mongoose.Schema(
     total_amount: {
       type: Number,
       required: true,
+      min: 0,
+    },
+    original_amount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    discount_applied: {
+      type: Boolean,
+      default: false,
+    },
+    discount_code: {
+      type: String,
+      required: false,
     },
     status: {
       type: String,
@@ -49,23 +66,29 @@ const orderSchema = mongoose.Schema(
     shipping_address: {
       type: String,
       required: true,
+      trim: true,
     },
     order_email: {
       type: String,
       required: true,
+      trim: true,
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please provide a valid email"],
     },
     phone_number: {
       type: String,
       required: true,
+      trim: true,
       match: [/^\+?\d{10,15}$/, "Please provide a valid phone number"],
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now,
     },
   },
   { timestamps: true }
 );
+
+// Index for better query performance
+orderSchema.index({ user_id: 1 });
+orderSchema.index({ guest_id: 1 });
+orderSchema.index({ order_email: 1 });
+orderSchema.index({ status: 1 });
+orderSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Order", orderSchema);

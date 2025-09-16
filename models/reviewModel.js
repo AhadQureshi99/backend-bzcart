@@ -5,7 +5,7 @@ const reviewSchema = mongoose.Schema(
     user_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false, // Changed to optional
+      required: true, // Make user_id required
     },
     product_id: {
       type: mongoose.Schema.Types.ObjectId,
@@ -15,13 +15,16 @@ const reviewSchema = mongoose.Schema(
     rating: {
       type: Number,
       required: true,
-      min: 1,
-      max: 5,
+      min: [1, "Rating must be at least 1"],
+      max: [5, "Rating must be at most 5"],
     },
-    review_text: {
+    comment: {
+      // Changed from review_text to comment for consistency
       type: String,
-      required: true,
+      required: [true, "Review comment is required"],
       trim: true,
+      minlength: [3, "Review must be at least 3 characters long"],
+      maxlength: [500, "Review cannot exceed 500 characters"],
     },
   },
   {

@@ -1,14 +1,18 @@
 const handler = require("express-async-handler");
 const userModel = require("../models/userModel");
-const tempUserModel = require("../models/tempUserModel"); // New model
+const tempUserModel = require("../models/tempUserModel");
+const discountCodeModel = require("../models/discountCodeModel"); // New model
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 const generateOTP = () => {
-  const randomNum = Math.random() * 1000000;
-  const FloorNum = Math.floor(randomNum);
-  return FloorNum;
+  return crypto.randomInt(100000, 999999); // Secure OTP generation
+};
+
+const generateDiscountCode = () => {
+  return crypto.randomBytes(4).toString("hex").toUpperCase(); // Generate 8-character code
 };
 
 const sendOTP = (email, otp) => {
@@ -105,6 +109,100 @@ const sendOTP = (email, otp) => {
   });
 };
 
+const sendDiscountCode = (email, code) => {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: process.env.MAIL_USER,
+    to: email,
+    subject: "Your Exclusive 10% Discount Code",
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discount Code</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f9;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 20px auto;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: #007bff;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
+      font-size: 24px;
+    }
+    .body {
+      padding: 20px;
+      text-align: center;
+    }
+    .code {
+      font-size: 32px;
+      font-weight: bold;
+      color: #333333;
+      margin: 20px 0;
+      letter-spacing: 4px;
+    }
+    .note {
+      color: #555555;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    .footer {
+      background: #f4f4f9;
+      padding: 10px;
+      text-align: center;
+      font-size: 12px;
+      color: #888888;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      Your 10% Discount Code
+    </div>
+    <div class="body">
+      <p>Thank you for subscribing! Use the following code at checkout to get 10% off your first order:</p>
+      <div class="code">${code}</div>
+      <p class="note">This code is valid for 7 days and can be used once with Cash on Delivery.</p>
+    </div>
+    <div class="footer">
+      If you didn’t request this, please ignore this email or contact support.
+    </div>
+  </div>
+</body>
+</html>`,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error("Email error:", error);
+      throw new Error("Failed to send discount code email");
+    } else {
+      console.log("Discount code email sent successfully:", info.response);
+    }
+  });
+};
+
 const registerUser = handler(async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -113,7 +211,6 @@ const registerUser = handler(async (req, res) => {
     throw new Error("Please enter all the fields");
   }
 
-  // Check if email already exists in permanent or temporary collection
   const findUser = await userModel.findOne({ email });
   const findTempUser = await tempUserModel.findOne({ email });
 
@@ -125,7 +222,6 @@ const registerUser = handler(async (req, res) => {
   const hashedPass = await bcrypt.hash(password, 10);
   const myOTP = generateOTP();
 
-  // Store in temporary collection
   const tempUser = await tempUserModel.create({
     username,
     email,
@@ -159,7 +255,6 @@ const verifyOTP = handler(async (req, res) => {
   }
 
   if (findTempUser.otp == otp) {
-    // Create permanent user
     const createdUser = await userModel.create({
       username: findTempUser.username,
       email: findTempUser.email,
@@ -167,7 +262,6 @@ const verifyOTP = handler(async (req, res) => {
       role: "user",
     });
 
-    // Delete temporary user
     await tempUserModel.deleteOne({ _id: user_id });
 
     res.send({
@@ -221,6 +315,29 @@ const getAllUsers = handler(async (req, res) => {
   res.send(users);
 });
 
+const subscribeUser = handler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    res.status(400);
+    throw new Error("Please provide an email address");
+  }
+
+  const existingCode = await discountCodeModel.findOne({ email });
+  if (existingCode) {
+    res.status(400);
+    throw new Error("A discount code has already been sent to this email");
+  }
+
+  const code = generateDiscountCode();
+  await discountCodeModel.create({ email, code });
+  sendDiscountCode(email, code);
+
+  res.status(201).send({
+    message: "Discount code sent to your email!",
+  });
+});
+
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: "15d",
@@ -232,4 +349,5 @@ module.exports = {
   loginUser,
   verifyOTP,
   getAllUsers,
+  subscribeUser,
 };

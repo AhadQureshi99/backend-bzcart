@@ -1,5 +1,6 @@
 const Order = require("../models/orderModel");
 const productModel = require("../models/productModel");
+const discountCodeModel = require("../models/discountCodeModel"); // Add this import
 const asyncHandler = require("express-async-handler");
 
 const createOrder = asyncHandler(async (req, res) => {
@@ -11,6 +12,7 @@ const createOrder = asyncHandler(async (req, res) => {
     phone_number,
     full_name,
     guestId,
+    discount_code, // Add this field
   } = req.body;
   const user_id = req.user ? req.user._id : guestId;
 
@@ -51,6 +53,44 @@ const createOrder = asyncHandler(async (req, res) => {
     throw new Error("Invalid phone number");
   }
 
+  // Handle discount code validation
+  let original_amount = total_amount;
+  let final_amount = total_amount;
+  let discount_applied = false;
+  let discount_code_used = null;
+
+  if (discount_code) {
+    const discount = await discountCodeModel.findOne({
+      code: discount_code.trim().toUpperCase(),
+      email: order_email,
+    });
+
+    if (!discount) {
+      res.status(400);
+      throw new Error("Invalid or expired discount code");
+    }
+
+    if (discount.isUsed) {
+      res.status(400);
+      throw new Error("Discount code has already been used");
+    }
+
+    if (discount.expiresAt < Date.now()) {
+      res.status(400);
+      throw new Error("Discount code has expired");
+    }
+
+    // Apply 10% discount
+    final_amount = Math.round(total_amount * 0.9 * 100) / 100; // Round to 2 decimal places
+    original_amount = total_amount;
+    discount_applied = true;
+    discount_code_used = discount_code.trim().toUpperCase();
+
+    // Mark code as used
+    discount.isUsed = true;
+    await discount.save();
+  }
+
   // Validate stock for each product
   await Promise.all(
     products.map(async (item) => {
@@ -68,13 +108,16 @@ const createOrder = asyncHandler(async (req, res) => {
     })
   );
 
-  // Create the order
+  // Create the order with discount information
   const order = await Order.create({
     user_id: user_id && !user_id.startsWith("guest_") ? user_id : undefined,
     guest_id: guestId || undefined,
     full_name,
     products,
-    total_amount,
+    total_amount: final_amount, // Store the final amount after discount
+    original_amount: original_amount, // Store original amount for reference
+    discount_applied,
+    discount_code: discount_code_used,
     shipping_address,
     order_email,
     phone_number,
@@ -102,11 +145,14 @@ const getOrders = asyncHandler(async (req, res) => {
         select: "username email",
         match: { _id: { $exists: true } },
       })
-      .populate("products.product_id");
+      .populate("products.product_id")
+      .sort({ createdAt: -1 }); // Sort by newest first
     res.status(200).json(orders);
   } catch (error) {
     console.error("Get orders error:", error.message, error.stack);
-    res.status(500).json({ message: error.message || "Failed to fetch orders" });
+    res
+      .status(500)
+      .json({ message: error.message || "Failed to fetch orders" });
   }
 });
 
@@ -134,7 +180,9 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
   }
 
   if (
-    !["pending", "processing", "shipped", "delivered", "cancelled"].includes(status)
+    !["pending", "processing", "shipped", "delivered", "cancelled"].includes(
+      status
+    )
   ) {
     res.status(400);
     throw new Error("Invalid status");
@@ -151,6 +199,15 @@ const deleteOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Order not found");
   }
+
+  // Restore stock if order is being deleted
+  await Promise.all(
+    order.products.map(async (item) => {
+      await productModel.findByIdAndUpdate(item.product_id, {
+        $inc: { product_stock: item.quantity },
+      });
+    })
+  );
 
   await Order.findByIdAndDelete(req.params.id);
   res.status(200).json({ message: "Order deleted successfully" });
