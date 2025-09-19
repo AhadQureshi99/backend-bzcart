@@ -462,14 +462,6 @@ const deleteProduct = handler(async (req, res) => {
     throw new Error("Product not found");
   }
 
-  // Check admin privileges
-  const user = req.user;
-  if (!user || !["superadmin", "admin"].includes(user.role)) {
-    console.log("deleteProduct - Access denied for user:", user?._id);
-    res.status(403);
-    throw new Error("Admin privileges required");
-  }
-
   // Delete associated reviews
   await reviewModel.deleteMany({ product_id: req.params.id });
 
