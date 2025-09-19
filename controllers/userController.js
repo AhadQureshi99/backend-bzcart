@@ -1,7 +1,7 @@
 const handler = require("express-async-handler");
 const userModel = require("../models/userModel");
 const tempUserModel = require("../models/tempUserModel");
-const discountCodeModel = require("../models/discountCodeModel"); // New model
+const discountCodeModel = require("../models/discountCodeModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
@@ -338,6 +338,40 @@ const subscribeUser = handler(async (req, res) => {
   });
 });
 
+const validateDiscountCode = handler(async (req, res) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    res.status(400);
+    throw new Error("Email and discount code are required");
+  }
+
+  const discount = await discountCodeModel.findOne({
+    code: code.trim().toUpperCase(),
+    email,
+  });
+
+  if (!discount) {
+    res.status(400);
+    return res.json({ isValid: false, message: "Invalid discount code" });
+  }
+
+  if (discount.isUsed) {
+    res.status(400);
+    return res.json({
+      isValid: false,
+      message: "Discount code has already been used",
+    });
+  }
+
+  if (discount.expiresAt < Date.now()) {
+    res.status(400);
+    return res.json({ isValid: false, message: "Discount code has expired" });
+  }
+
+  res.status(200).json({ isValid: true, message: "Valid discount code" });
+});
+
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: "15d",
@@ -350,4 +384,5 @@ module.exports = {
   verifyOTP,
   getAllUsers,
   subscribeUser,
+  validateDiscountCode,
 };

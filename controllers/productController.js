@@ -169,6 +169,10 @@ const createProduct = handler(async (req, res) => {
     product_code,
     rating,
     bg_color,
+    shipping,
+    payment,
+    isNewArrival,
+    isBestSeller,
   } = req.body;
 
   if (
@@ -178,7 +182,9 @@ const createProduct = handler(async (req, res) => {
     !product_images ||
     !category ||
     !brand_name ||
-    !product_code
+    !product_code ||
+    !shipping ||
+    !payment
   ) {
     res.status(400);
     throw new Error("Please provide all required fields");
@@ -205,6 +211,7 @@ const createProduct = handler(async (req, res) => {
 
   const basePrice = Number(product_base_price);
   const discountedPrice = Number(product_discounted_price);
+  const shippingCost = Number(shipping);
 
   if (
     isNaN(basePrice) ||
@@ -219,6 +226,16 @@ const createProduct = handler(async (req, res) => {
   if (discountedPrice > basePrice) {
     res.status(400);
     throw new Error("Discounted price cannot be higher than base price");
+  }
+
+  if (isNaN(shippingCost) || shippingCost < 0) {
+    res.status(400);
+    throw new Error("Shipping cost must be a non-negative number");
+  }
+
+  if (!Array.isArray(payment) || payment.length === 0) {
+    res.status(400);
+    throw new Error("At least one payment method is required");
   }
 
   if (bg_color && !/^#[0-9A-F]{6}$/i.test(bg_color)) {
@@ -242,6 +259,10 @@ const createProduct = handler(async (req, res) => {
     rating: Number(rating) || 4,
     reviews: [],
     bg_color: bg_color || "#FFFFFF",
+    shipping: shippingCost,
+    payment: payment || ["Cash on Delivery"],
+    isNewArrival: Boolean(isNewArrival),
+    isBestSeller: Boolean(isBestSeller),
   });
 
   const populatedProduct = await productModel
@@ -309,6 +330,10 @@ const updateProduct = handler(async (req, res) => {
     product_code,
     rating,
     bg_color,
+    shipping,
+    payment,
+    isNewArrival,
+    isBestSeller,
   } = req.body;
 
   if (category) {
@@ -340,6 +365,8 @@ const updateProduct = handler(async (req, res) => {
     product_discounted_price !== undefined
       ? Number(product_discounted_price)
       : product.product_discounted_price;
+  let shippingCost =
+    shipping !== undefined ? Number(shipping) : product.shipping;
 
   if (
     product_base_price !== undefined &&
@@ -364,6 +391,19 @@ const updateProduct = handler(async (req, res) => {
   ) {
     res.status(400);
     throw new Error("Discounted price cannot be higher than base price");
+  }
+
+  if (shipping !== undefined && (isNaN(shippingCost) || shippingCost < 0)) {
+    res.status(400);
+    throw new Error("Shipping cost must be a non-negative number");
+  }
+
+  if (
+    payment !== undefined &&
+    (!Array.isArray(payment) || payment.length === 0)
+  ) {
+    res.status(400);
+    throw new Error("At least one payment method is required");
   }
 
   if (bg_color && !/^#[0-9A-F]{6}$/i.test(bg_color)) {
@@ -392,6 +432,16 @@ const updateProduct = handler(async (req, res) => {
         product_code: product_code || product.product_code,
         rating: Number(rating) || product.rating,
         bg_color: bg_color || product.bg_color,
+        shipping: shippingCost,
+        payment: payment || product.payment,
+        isNewArrival:
+          isNewArrival !== undefined
+            ? Boolean(isNewArrival)
+            : product.isNewArrival,
+        isBestSeller:
+          isBestSeller !== undefined
+            ? Boolean(isBestSeller)
+            : product.isBestSeller,
       },
       { new: true }
     )
@@ -436,16 +486,23 @@ const deleteProduct = handler(async (req, res) => {
 const submitReview = handler(async (req, res) => {
   console.log("submitReview - Request body:", req.body);
 
-  const { user_id, rating, comment } = req.body; // Changed review_text to comment
+  const { user_id, rating, comment } = req.body;
   const product_id = req.params.productId;
 
   if (!user_id || !rating || !comment) {
-    console.log("submitReview - Missing required fields:", { user_id, rating, comment });
+    console.log("submitReview - Missing required fields:", {
+      user_id,
+      rating,
+      comment,
+    });
     res.status(400);
     throw new Error("User ID, rating, and comment are required");
   }
 
-  if (!mongoose.Types.ObjectId.isValid(user_id) || !mongoose.Types.ObjectId.isValid(product_id)) {
+  if (
+    !mongoose.Types.ObjectId.isValid(user_id) ||
+    !mongoose.Types.ObjectId.isValid(product_id)
+  ) {
     console.log("submitReview - Invalid ID format:", { user_id, product_id });
     res.status(400);
     throw new Error("Invalid user or product ID format");

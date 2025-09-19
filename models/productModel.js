@@ -62,7 +62,27 @@ const productSchema = mongoose.Schema(
     bg_color: {
       type: String,
       required: false,
-      default: "#FFFFFF", // Default to white or any preferred color
+      default: "#FFFFFF",
+    },
+    shipping: {
+      type: Number,
+      required: true,
+      default: 0, // Shipping cost in Rs.
+    },
+    payment: {
+      type: [String], // Array of payment methods (e.g., ["Cash on Delivery", "Credit Card"])
+      required: true,
+      default: ["Cash on Delivery"],
+    },
+    isNewArrival: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
+    isBestSeller: {
+      type: Boolean,
+      required: false,
+      default: false,
     },
   },
   {

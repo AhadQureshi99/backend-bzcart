@@ -14,9 +14,9 @@ const orderRouter = express.Router();
 orderRouter.post("/create-order", createOrder);
 
 // Protected routes for authenticated users/admins
-orderRouter.get("/orders", authHandler, getOrders);
-orderRouter.get("/order/:id", authHandler, getOrderById);
-orderRouter.put("/order/:id", authHandler, updateOrderStatus);
-orderRouter.delete("/order/:id", authHandler, deleteOrder);
+orderRouter.get("/orders",  getOrders);
+orderRouter.get("/order/:id",  getOrderById);
+orderRouter.put("/order/:id",  updateOrderStatus);
+orderRouter.delete("/order/:id",  deleteOrder);
 
 module.exports = orderRouter;
