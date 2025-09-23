@@ -6,6 +6,8 @@ const Category = require("../models/categoryModel");
 const User = require("../models/userModel");
 const mongoose = require("mongoose");
 
+
+
 const addToCart = handler(async (req, res) => {
   console.log("addToCart - Request body:", req.body);
 

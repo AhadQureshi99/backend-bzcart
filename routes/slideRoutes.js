@@ -17,3 +17,4 @@ slideRouter.put("/slide/:id", updateSlide);
 slideRouter.delete("/slide/:id", deleteSlide);
 
 module.exports = slideRouter;
+

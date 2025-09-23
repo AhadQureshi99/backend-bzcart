@@ -5,6 +5,8 @@ const {
   deleteBrand,
 } = require("../controllers/brandController");
 
+
+
 const router = express.Router();
 
 router.route("/").post(addBrand).get(getBrands);

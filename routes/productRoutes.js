@@ -31,3 +31,5 @@ router.post("/reviews/:productId", submitReview); // No auth
 router.get("/reviews/:productId", getReviews); // Public access
 
 module.exports = router;
+
+

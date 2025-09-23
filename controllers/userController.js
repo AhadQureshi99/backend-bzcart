@@ -11,6 +11,8 @@ const generateOTP = () => {
   return crypto.randomInt(100000, 999999); // Secure OTP generation
 };
 
+
+
 const generateDiscountCode = () => {
   return crypto.randomBytes(4).toString("hex").toUpperCase(); // Generate 8-character code
 };
