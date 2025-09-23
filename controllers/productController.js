@@ -64,10 +64,11 @@ const addToCart = handler(async (req, res) => {
     });
   }
 
-  const populatedCart = await cartModel
-    .findById(cart._id)
+  // Fetch the entire cart for the user or guest
+  const updatedCarts = await cartModel
+    .find(user_id ? { user_id } : { guest_id: guestId })
     .populate("product_id");
-  res.status(200).json(populatedCart);
+  res.status(200).json(updatedCarts); // Return the entire cart
 });
 
 const getMyCart = handler(async (req, res) => {
