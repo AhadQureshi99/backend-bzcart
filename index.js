@@ -27,8 +27,9 @@ app.use(
       "https://www.bzcart.store",
       "https://bzcart.store",
       "https://www.dashboard.bzcart.store",
-      "https://dashboard.bzcart.store",
+      "http://dashboards.bzcart.store",
       "https://api.bzcart.store", // ✅ yeh add karo
+      
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
