@@ -6,12 +6,10 @@ const Category = require("../models/categoryModel");
 const User = require("../models/userModel");
 const mongoose = require("mongoose");
 
-
-
 const addToCart = handler(async (req, res) => {
   console.log("addToCart - Request body:", req.body);
 
-  const { product_id, selected_image, guestId } = req.body;
+  const { product_id, selected_image, guestId, selected_size } = req.body;
   const user_id = req.user?._id;
 
   if (!product_id || !selected_image) {
@@ -36,10 +34,29 @@ const addToCart = handler(async (req, res) => {
     throw new Error("Product not found");
   }
 
+  if (product.sizes && product.sizes.length > 0 && !selected_size) {
+    console.log("addToCart - Size required for product:", product_id);
+    res.status(400);
+    throw new Error("Please select a size for this product");
+  }
+
+  if (selected_size) {
+    const sizeEntry = product.sizes.find((s) => s.size === selected_size);
+    if (!sizeEntry || sizeEntry.stock <= 0) {
+      console.log("addToCart - Invalid or out-of-stock size:", selected_size);
+      res.status(400);
+      throw new Error("Selected size is invalid or out of stock");
+    }
+  } else if (product.product_stock <= 0) {
+    console.log("addToCart - Product out of stock:", product_id);
+    res.status(400);
+    throw new Error("Product is out of stock");
+  }
+
   let cart;
   const query = guestId
-    ? { guest_id: guestId, product_id, selected_image }
-    : { user_id, product_id, selected_image };
+    ? { guest_id: guestId, product_id, selected_image, selected_size }
+    : { user_id, product_id, selected_image, selected_size };
 
   cart = await cartModel.findOne(query);
 
@@ -56,21 +73,22 @@ const addToCart = handler(async (req, res) => {
       guestId,
       product_id,
       selected_image,
+      selected_size,
     });
     cart = await cartModel.create({
       user_id: user_id || undefined,
       guest_id: guestId || undefined,
       product_id,
       selected_image,
+      selected_size,
       quantity: 1,
     });
   }
 
-  // Fetch the entire cart for the user or guest
   const updatedCarts = await cartModel
     .find(user_id ? { user_id } : { guest_id: guestId })
     .populate("product_id");
-  res.status(200).json(updatedCarts); // Return the entire cart
+  res.status(200).json(updatedCarts);
 });
 
 const getMyCart = handler(async (req, res) => {
@@ -90,7 +108,7 @@ const getMyCart = handler(async (req, res) => {
 });
 
 const removeFromCart = handler(async (req, res) => {
-  const { product_id, selected_image, guestId } = req.body;
+  const { product_id, selected_image, guestId, selected_size } = req.body;
   const user_id = req.user?._id;
 
   console.log("removeFromCart called with:", {
@@ -98,6 +116,7 @@ const removeFromCart = handler(async (req, res) => {
     selected_image,
     user_id,
     guestId,
+    selected_size,
   });
 
   if (!product_id || !selected_image) {
@@ -116,14 +135,15 @@ const removeFromCart = handler(async (req, res) => {
   }
 
   const query = user_id
-    ? { user_id, product_id, selected_image }
-    : { guest_id: guestId, product_id, selected_image };
+    ? { user_id, product_id, selected_image, selected_size }
+    : { guest_id: guestId, product_id, selected_image, selected_size };
   let cart = await cartModel.findOne(query);
 
   if (!cart) {
     console.log("removeFromCart - Cart item not found:", {
       product_id,
       selected_image,
+      selected_size,
     });
     res.status(404);
     throw new Error("Cart item not found");
@@ -165,6 +185,8 @@ const createProduct = handler(async (req, res) => {
     product_base_price,
     product_discounted_price,
     product_stock,
+    sizes,
+    warranty,
     product_images,
     category,
     subcategories,
@@ -215,6 +237,7 @@ const createProduct = handler(async (req, res) => {
   const basePrice = Number(product_base_price);
   const discountedPrice = Number(product_discounted_price);
   const shippingCost = Number(shipping);
+  const stock = Number(product_stock);
 
   if (
     isNaN(basePrice) ||
@@ -236,6 +259,21 @@ const createProduct = handler(async (req, res) => {
     throw new Error("Shipping cost must be a non-negative number");
   }
 
+  if (isNaN(stock) || stock < 0) {
+    res.status(400);
+    throw new Error("Stock must be a non-negative number");
+  }
+
+  if (sizes && Array.isArray(sizes)) {
+    const validSizes = ["S", "M", "L", "XL"];
+    for (const size of sizes) {
+      if (!validSizes.includes(size.size) || isNaN(size.stock) || size.stock < 0) {
+        res.status(400);
+        throw new Error("Invalid size or stock value. Sizes must be S, M, L, or XL.");
+      }
+    }
+  }
+
   if (!Array.isArray(payment) || payment.length === 0) {
     res.status(400);
     throw new Error("At least one payment method is required");
@@ -253,7 +291,9 @@ const createProduct = handler(async (req, res) => {
     product_description: product_description || "",
     product_base_price: basePrice,
     product_discounted_price: discountedPrice,
-    product_stock: Number(product_stock) || 0,
+    product_stock: stock,
+    sizes: sizes || [],
+    warranty: warranty || "",
     product_images: Array.isArray(product_images) ? product_images : [],
     category,
     subcategories: subcategories || [],
@@ -326,6 +366,8 @@ const updateProduct = handler(async (req, res) => {
     product_base_price,
     product_discounted_price,
     product_stock,
+    sizes,
+    warranty,
     product_images,
     category,
     subcategories,
@@ -370,6 +412,8 @@ const updateProduct = handler(async (req, res) => {
       : product.product_discounted_price;
   let shippingCost =
     shipping !== undefined ? Number(shipping) : product.shipping;
+  let stock =
+    product_stock !== undefined ? Number(product_stock) : product.product_stock;
 
   if (
     product_base_price !== undefined &&
@@ -401,6 +445,21 @@ const updateProduct = handler(async (req, res) => {
     throw new Error("Shipping cost must be a non-negative number");
   }
 
+  if (product_stock !== undefined && (isNaN(stock) || stock < 0)) {
+    res.status(400);
+    throw new Error("Stock must be a non-negative number");
+  }
+
+  if (sizes && Array.isArray(sizes)) {
+    const validSizes = ["S", "M", "L", "XL"];
+    for (const size of sizes) {
+      if (!validSizes.includes(size.size) || isNaN(size.stock) || size.stock < 0) {
+        res.status(400);
+        throw new Error("Invalid size or stock value. Sizes must be S, M, L, or XL.");
+      }
+    }
+  }
+
   if (
     payment !== undefined &&
     (!Array.isArray(payment) || payment.length === 0)
@@ -424,10 +483,9 @@ const updateProduct = handler(async (req, res) => {
         product_description: product_description || product.product_description,
         product_base_price: basePrice,
         product_discounted_price: discountedPrice,
-        product_stock:
-          product_stock !== undefined
-            ? Number(product_stock)
-            : product.product_stock,
+        product_stock: stock,
+        sizes: sizes || product.sizes,
+        warranty: warranty || product.warranty,
         product_images: product_images || product.product_images,
         category: category || product.category,
         subcategories: subcategories || product.subcategories,
@@ -465,13 +523,8 @@ const deleteProduct = handler(async (req, res) => {
     throw new Error("Product not found");
   }
 
-  // Delete associated reviews
   await reviewModel.deleteMany({ product_id: req.params.id });
-
-  // Delete the product from all carts
   await cartModel.deleteMany({ product_id: req.params.id });
-
-  // Delete the product
   await productModel.findByIdAndDelete(req.params.id);
 
   console.log("deleteProduct - Product deleted successfully:", req.params.id);
@@ -517,7 +570,6 @@ const submitReview = handler(async (req, res) => {
     throw new Error("Product not found");
   }
 
-  // Check if user already reviewed this product
   const existingReview = await reviewModel.findOne({ user_id, product_id });
   if (existingReview) {
     console.log("submitReview - User already reviewed product:", user_id);

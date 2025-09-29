@@ -23,6 +23,25 @@ const productSchema = mongoose.Schema(
       required: true,
       default: 0,
     },
+    sizes: [
+      {
+        size: {
+          type: String,
+          enum: ["S", "M", "L", "XL"],
+          required: true,
+        },
+        stock: {
+          type: Number,
+          required: true,
+          default: 0,
+        },
+      },
+    ],
+    warranty: {
+      type: String,
+      required: false,
+      default: "",
+    },
     product_images: {
       type: Array,
       required: true,
@@ -67,10 +86,10 @@ const productSchema = mongoose.Schema(
     shipping: {
       type: Number,
       required: true,
-      default: 0, // Shipping cost in Rs.
+      default: 0,
     },
     payment: {
-      type: [String], // Array of payment methods (e.g., ["Cash on Delivery", "Credit Card"])
+      type: [String],
       required: true,
       default: ["Cash on Delivery"],
     },

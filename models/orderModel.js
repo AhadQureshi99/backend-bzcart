@@ -33,6 +33,11 @@ const orderSchema = mongoose.Schema(
           type: String,
           required: false,
         },
+        selected_size: {
+          type: String,
+          enum: ["S", "M", "L", "XL", null], // Allow null for products without sizes
+          required: false,
+        },
       },
     ],
     total_amount: {
@@ -61,7 +66,7 @@ const orderSchema = mongoose.Schema(
     payment_status: {
       type: String,
       enum: ["pending", "completed", "failed"],
-      default: "completed", // Default to completed since no payment processing
+      default: "completed",
     },
     shipping_address: {
       type: String,

@@ -20,6 +20,10 @@ const cartSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    selected_size: {
+      type: String,
+      required: false,
+    },
     quantity: {
       type: Number,
       required: true,
