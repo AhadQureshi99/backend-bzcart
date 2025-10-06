@@ -54,9 +54,13 @@ const addToCart = handler(async (req, res) => {
   }
 
   let cart;
-  const query = guestId
-    ? { guest_id: guestId, product_id, selected_image, selected_size }
-    : { user_id, product_id, selected_image, selected_size };
+  // Build query conditionally
+  let query = guestId
+    ? { guest_id: guestId, product_id, selected_image }
+    : { user_id, product_id, selected_image };
+  if (selected_size) {
+    query.selected_size = selected_size;
+  }
 
   cart = await cartModel.findOne(query);
 
@@ -80,7 +84,7 @@ const addToCart = handler(async (req, res) => {
       guest_id: guestId || undefined,
       product_id,
       selected_image,
-      selected_size,
+      selected_size: selected_size || undefined, // Only set if provided
       quantity: 1,
     });
   }
@@ -134,9 +138,14 @@ const removeFromCart = handler(async (req, res) => {
     throw new Error("Invalid product ID format");
   }
 
-  const query = user_id
-    ? { user_id, product_id, selected_image, selected_size }
-    : { guest_id: guestId, product_id, selected_image, selected_size };
+  // Build query conditionally
+  let query = user_id
+    ? { user_id, product_id, selected_image }
+    : { guest_id: guestId, product_id, selected_image };
+  if (selected_size) {
+    query.selected_size = selected_size;
+  }
+
   let cart = await cartModel.findOne(query);
 
   if (!cart) {
