@@ -11,8 +11,6 @@ const generateOTP = () => {
   return crypto.randomInt(100000, 999999); // Secure OTP generation
 };
 
-
-
 const generateDiscountCode = () => {
   return crypto.randomBytes(4).toString("hex").toUpperCase(); // Generate 8-character code
 };
@@ -205,8 +203,41 @@ const sendDiscountCode = (email, code) => {
   });
 };
 
+const getCurrentUser = handler(async (req, res) => {
+  const user_id = req.user?.id;
+  console.log("userController - getCurrentUser: Called with user_id:", user_id);
+
+  if (!user_id) {
+    console.log("userController - getCurrentUser: No user authenticated");
+    res.status(401);
+    throw new Error("Not authorized, no user found");
+  }
+
+  try {
+    const user = await userModel.findById(user_id).select("-password");
+    if (!user) {
+      console.log("userController - getCurrentUser: User not found:", user_id);
+      res.status(404);
+      throw new Error("User not found");
+    }
+    console.log("userController - getCurrentUser: Found user:", { id: user._id, email: user.email });
+    res.status(200).json({
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+    });
+  } catch (err) {
+    console.error("userController - getCurrentUser: Error:", err.message);
+    res.status(500);
+    throw new Error("Failed to fetch user");
+  }
+});
+
 const registerUser = handler(async (req, res) => {
   const { username, email, password } = req.body;
+
+  console.log("userController - registerUser: Registering with:", { email });
 
   if (!username || !email || !password) {
     res.status(400);
@@ -233,7 +264,8 @@ const registerUser = handler(async (req, res) => {
 
   sendOTP(email, myOTP);
 
-  res.send({
+  console.log("userController - registerUser: Success, tempUser:", tempUser._id);
+  res.status(201).send({
     _id: tempUser._id,
     username: tempUser.username,
     email: tempUser.email,
@@ -244,6 +276,8 @@ const registerUser = handler(async (req, res) => {
 const verifyOTP = handler(async (req, res) => {
   const user_id = req.user._id;
   const { otp } = req.body;
+
+  console.log("userController - verifyOTP: Verifying OTP for user_id:", user_id);
 
   if (!otp) {
     res.status(400);
@@ -266,7 +300,8 @@ const verifyOTP = handler(async (req, res) => {
 
     await tempUserModel.deleteOne({ _id: user_id });
 
-    res.send({
+    console.log("userController - verifyOTP: Success, user:", createdUser._id);
+    res.status(200).send({
       _id: createdUser._id,
       username: createdUser.username,
       email: createdUser.email,
@@ -282,6 +317,8 @@ const verifyOTP = handler(async (req, res) => {
 const loginUser = handler(async (req, res) => {
   const { email, password } = req.body;
 
+  console.log("userController - loginUser: Logging in with:", { email });
+
   if (!email || !password) {
     res.status(400);
     throw new Error("Please enter all the fields");
@@ -295,7 +332,8 @@ const loginUser = handler(async (req, res) => {
   }
 
   if (await bcrypt.compare(password, findUser.password)) {
-    res.send({
+    console.log("userController - loginUser: Success, user:", findUser._id);
+    res.status(200).send({
       _id: findUser._id,
       username: findUser.username,
       email: findUser.email,
@@ -309,16 +347,20 @@ const loginUser = handler(async (req, res) => {
 });
 
 const getAllUsers = handler(async (req, res) => {
+  console.log("userController - getAllUsers: Fetching all users");
   const users = await userModel.find({}, "_id username email role").lean();
   if (!users || users.length === 0) {
     res.status(404);
     throw new Error("No users found");
   }
-  res.send(users);
+  console.log("userController - getAllUsers: Found", users.length, "users");
+  res.status(200).send(users);
 });
 
 const subscribeUser = handler(async (req, res) => {
   const { email } = req.body;
+
+  console.log("userController - subscribeUser: Subscribing with:", { email });
 
   if (!email) {
     res.status(400);
@@ -335,6 +377,7 @@ const subscribeUser = handler(async (req, res) => {
   await discountCodeModel.create({ email, code });
   sendDiscountCode(email, code);
 
+  console.log("userController - subscribeUser: Success, code sent:", code);
   res.status(201).send({
     message: "Discount code sent to your email!",
   });
@@ -342,6 +385,8 @@ const subscribeUser = handler(async (req, res) => {
 
 const validateDiscountCode = handler(async (req, res) => {
   const { email, code } = req.body;
+
+  console.log("userController - validateDiscountCode: Validating code for:", { email, code });
 
   if (!email || !code) {
     res.status(400);
@@ -354,11 +399,13 @@ const validateDiscountCode = handler(async (req, res) => {
   });
 
   if (!discount) {
+    console.log("userController - validateDiscountCode: Invalid code");
     res.status(400);
     return res.json({ isValid: false, message: "Invalid discount code" });
   }
 
   if (discount.isUsed) {
+    console.log("userController - validateDiscountCode: Code already used");
     res.status(400);
     return res.json({
       isValid: false,
@@ -367,10 +414,12 @@ const validateDiscountCode = handler(async (req, res) => {
   }
 
   if (discount.expiresAt < Date.now()) {
+    console.log("userController - validateDiscountCode: Code expired");
     res.status(400);
     return res.json({ isValid: false, message: "Discount code has expired" });
   }
 
+  console.log("userController - validateDiscountCode: Valid code");
   res.status(200).json({ isValid: true, message: "Valid discount code" });
 });
 
@@ -381,6 +430,7 @@ const generateToken = (id) => {
 };
 
 module.exports = {
+  getCurrentUser,
   registerUser,
   loginUser,
   verifyOTP,
