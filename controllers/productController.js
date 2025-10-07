@@ -60,77 +60,60 @@ const addToCart = handler(async (req, res) => {
       throw new Error("Product not found");
     }
 
-    let canAddToCart = false;
-    if (product.sizes && product.sizes.length > 0) {
-      if (!selected_size) {
-        console.log("addToCart - Missing selected_size for sized product:", product_id);
-        res.status(400);
-        throw new Error("Size is required for this product");
-      }
-      const size = product.sizes.find((s) => s.size === selected_size);
-      if (!size) {
-        console.log("addToCart - Invalid size:", selected_size);
-        res.status(400);
-        throw new Error("Invalid size selected");
-      }
-      if (size.stock <= 0) {
-        console.log("addToCart - Size out of stock:", selected_size);
-        res.status(400);
-        throw new Error(`Size ${selected_size} is out of stock`);
-      }
-      canAddToCart = true;
-    } else {
-      if (product.product_stock <= 0) {
-        console.log("addToCart - Product out of stock:", product_id);
-        res.status(400);
-        throw new Error("Product is out of stock");
-      }
-      canAddToCart = true;
-    }
+  if (product.sizes && product.sizes.length > 0 && !selected_size) {
+    console.log("addToCart - Size required for product:", product_id);
+    res.status(400);
+    throw new Error("Please select a size for this product");
+  }
 
-    if (!canAddToCart) {
-      console.log("addToCart - Cannot add to cart due to stock issues");
+  if (selected_size) {
+    const sizeEntry = product.sizes.find((s) => s.size === selected_size);
+    if (!sizeEntry || sizeEntry.stock <= 0) {
+      console.log("addToCart - Invalid or out-of-stock size:", selected_size);
       res.status(400);
-      throw new Error("Cannot add to cart");
+      throw new Error("Selected size is invalid or out of stock");
     }
+  } else if (product.product_stock <= 0) {
+    console.log("addToCart - Product out of stock:", product_id);
+    res.status(400);
+    throw new Error("Product is out of stock");
+  }
 
-    const query = user_id
-      ? { user_id, product_id, selected_image, selected_size: selected_size || null }
-      : { guest_id: guestId, product_id, selected_image, selected_size: selected_size || null };
+  let cart;
+  // Build query conditionally
+  let query = guestId
+    ? { guest_id: guestId, product_id, selected_image }
+    : { user_id, product_id, selected_image };
+  if (selected_size) {
+    query.selected_size = selected_size;
+  }
 
-    console.log("addToCart - Query for existing cart item:", query);
+  cart = await cartModel.findOne(query);
 
-    let cart = await cartModel.findOne(query);
-    if (cart) {
-      const newQuantity = cart.quantity + 1;
-      if (product.sizes && product.sizes.length > 0) {
-        const size = product.sizes.find((s) => s.size === selected_size);
-        if (newQuantity > size.stock) {
-          console.log("addToCart - Exceeds stock for size:", selected_size);
-          res.status(400);
-          throw new Error(`Cannot add more: Size ${selected_size} stock limit reached`);
-        }
-      } else {
-        if (newQuantity > product.product_stock) {
-          console.log("addToCart - Exceeds product stock:", product_id);
-          res.status(400);
-          throw new Error("Cannot add more: Product stock limit reached");
-        }
-      }
-      cart.quantity = newQuantity;
-      await cart.save();
-      console.log("addToCart - Updated cart item:", cart._id);
-    } else {
-      cart = await cartModel.create({
-        user_id: user_id || null,
-        guest_id: user_id ? null : guestId,
-        product_id,
-        selected_image,
-        selected_size: selected_size || null,
-        quantity: 1,
-      });
-      console.log("addToCart - Created new cart item:", cart._id);
-    }
+  if (cart) {
+    console.log(
+      "addToCart - Incrementing quantity for existing cart item:",
+      cart._id
+    );
+    cart.quantity += 1;
+    await cart.save();
+  } else {
+    console.log("addToCart - Creating new cart item:", {
+      user_id,
+      guestId,
+      product_id,
+      selected_image,
+      selected_size,
+    });
+    cart = await cartModel.create({
+      user_id: user_id || undefined,
+      guest_id: guestId || undefined,
+      product_id,
+      selected_image,
+      selected_size: selected_size || undefined, // Only set if provided
+      quantity: 1,
+    });
+  }
 
     const updatedCarts = await cartModel
       .find(user_id ? { user_id } : { guest_id: guestId })
@@ -225,11 +208,15 @@ const removeFromCart = handler(async (req, res) => {
     throw new Error("Invalid product ID format");
   }
 
-  try {
-    const query = user_id
-      ? { user_id, product_id, selected_image, selected_size: selected_size || null }
-      : { guest_id: guestId, product_id, selected_image, selected_size: selected_size || null };
-    let cart = await cartModel.findOne(query);
+  // Build query conditionally
+  let query = user_id
+    ? { user_id, product_id, selected_image }
+    : { guest_id: guestId, product_id, selected_image };
+  if (selected_size) {
+    query.selected_size = selected_size;
+  }
+
+  let cart = await cartModel.findOne(query);
 
     if (!cart) {
       console.log("removeFromCart - Cart item not found:", query);

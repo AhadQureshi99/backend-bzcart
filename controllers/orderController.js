@@ -1,3 +1,4 @@
+// orderController.js
 const Order = require("../models/orderModel");
 const Product = require("../models/productModel");
 const discountCodeModel = require("../models/discountCodeModel");
@@ -9,7 +10,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
   const {
     products,
-    total_amount,
+    total_amount: subtotal_from_frontend,
     shipping_address,
     order_email,
     phone_number,
@@ -60,9 +61,71 @@ const createOrder = asyncHandler(async (req, res) => {
     throw new Error("Invalid phone number");
   }
 
+  // Validate products and stock, and compute shipping total
+  let shipping_total = 0;
+  let validatedProducts = [];
+  for (const item of products) {
+    if (!item.product_id || !item.quantity || !item.selected_image) {
+      console.log("createOrder - Invalid product data:", item);
+      res.status(400);
+      throw new Error(
+        "Each product must have product_id, quantity, and selected_image"
+      );
+    }
+    const product = await Product.findById(item.product_id);
+    if (!product) {
+      console.log("createOrder - Product not found:", item.product_id);
+      res.status(404);
+      throw new Error(`Product with ID ${item.product_id} not found`);
+    }
+    if (product.sizes && product.sizes.length > 0) {
+      if (!item.selected_size) {
+        console.log(
+          "createOrder - Missing selected_size for product with sizes:",
+          item.product_id
+        );
+        res.status(400);
+        throw new Error(
+          `Product ${product.product_name} requires a size selection`
+        );
+      }
+      const sizeEntry = product.sizes.find(
+        (s) => s.size === item.selected_size
+      );
+      if (!sizeEntry || sizeEntry.stock < item.quantity) {
+        console.log("createOrder - Insufficient stock for size:", {
+          product: product.product_name,
+          size: item.selected_size,
+          stock: sizeEntry ? sizeEntry.stock : 0,
+          requested: item.quantity,
+        });
+        res.status(400);
+        throw new Error(
+          `Product ${product.product_name} size ${
+            item.selected_size
+          } has only ${sizeEntry ? sizeEntry.stock : 0} units in stock`
+        );
+      }
+    } else if (product.product_stock < item.quantity) {
+      console.log("createOrder - Insufficient stock:", {
+        product: product.product_name,
+        stock: product.product_stock,
+        requested: item.quantity,
+      });
+      res.status(400);
+      throw new Error(
+        `Product ${product.product_name} has only ${product.product_stock} units in stock`
+      );
+    }
+    shipping_total += product.shipping * item.quantity;
+    validatedProducts.push({ ...item, product });
+  }
+
   // Validate discount code
-  let original_amount = total_amount;
-  let final_amount = total_amount;
+  let original_subtotal = subtotal_from_frontend;
+  let original_total = original_subtotal + shipping_total;
+  let final_subtotal = original_subtotal;
+  let final_total = original_total;
   let discount_applied = false;
   let discount_code_used = null;
   if (discount_code) {
@@ -85,62 +148,14 @@ const createOrder = asyncHandler(async (req, res) => {
       res.status(400);
       throw new Error("Discount code has expired");
     }
-    final_amount = Math.round(total_amount * 0.9 * 100) / 100;
-    original_amount = total_amount;
+    final_subtotal = Math.round(original_subtotal * 0.9 * 100) / 100;
+    final_total = final_subtotal + shipping_total;
+    original_total = original_subtotal + shipping_total;
     discount_applied = true;
     discount_code_used = discount_code.trim().toUpperCase();
     discount.isUsed = true;
     await discount.save();
   }
-
-  // Validate products and stock
-  await Promise.all(
-    products.map(async (item) => {
-      if (!item.product_id || !item.quantity || !item.selected_image) {
-        console.log("createOrder - Invalid product data:", item);
-        res.status(400);
-        throw new Error(
-          "Each product must have product_id, quantity, and selected_image"
-        );
-      }
-      const product = await Product.findById(item.product_id);
-      if (!product) {
-        console.log("createOrder - Product not found:", item.product_id);
-        res.status(404);
-        throw new Error(`Product with ID ${item.product_id} not found`);
-      }
-      if (product.sizes && product.sizes.length > 0) {
-        if (!item.selected_size) {
-          console.log("createOrder - Missing selected_size for product with sizes:", item.product_id);
-          res.status(400);
-          throw new Error(`Product ${product.product_name} requires a size selection`);
-        }
-        const sizeEntry = product.sizes.find((s) => s.size === item.selected_size);
-        if (!sizeEntry || sizeEntry.stock < item.quantity) {
-          console.log("createOrder - Insufficient stock for size:", {
-            product: product.product_name,
-            size: item.selected_size,
-            stock: sizeEntry ? sizeEntry.stock : 0,
-            requested: item.quantity,
-          });
-          res.status(400);
-          throw new Error(
-            `Product ${product.product_name} size ${item.selected_size} has only ${sizeEntry ? sizeEntry.stock : 0} units in stock`
-          );
-        }
-      } else if (product.product_stock < item.quantity) {
-        console.log("createOrder - Insufficient stock:", {
-          product: product.product_name,
-          stock: product.product_stock,
-          requested: item.quantity,
-        });
-        res.status(400);
-        throw new Error(
-          `Product ${product.product_name} has only ${product.product_stock} units in stock`
-        );
-      }
-    })
-  );
 
   // Create order
   const order = await Order.create({
@@ -151,10 +166,11 @@ const createOrder = asyncHandler(async (req, res) => {
       product_id: item.product_id,
       quantity: item.quantity,
       selected_image: item.selected_image,
-      selected_size: item.selected_size || null, // Ensure selected_size is included
+      selected_size: item.selected_size || null,
     })),
-    total_amount: final_amount,
-    original_amount,
+    total_amount: final_total,
+    original_amount: original_total,
+    shipping_amount: shipping_total,
     discount_applied,
     discount_code: discount_code_used,
     shipping_address,
@@ -178,13 +194,36 @@ const createOrder = asyncHandler(async (req, res) => {
   );
 
   // Clear cart
-  const query = user_id && !user_id.startsWith("guest_") ? { user_id } : { guest_id: guestId };
+  const query =
+    user_id && !user_id.startsWith("guest_")
+      ? { user_id }
+      : { guest_id: guestId };
   await Cart.deleteMany(query);
 
   console.log("createOrder - Order created successfully:", order._id);
   res.status(201).json(order);
 });
 
+const getMyOrders = asyncHandler(async (req, res) => {
+  const user_id = req.user?._id;
+  const { guestId } = req.query;
+
+  if (!user_id && !guestId) {
+    res.status(400);
+    throw new Error("User ID or guest ID is required");
+  }
+
+  const query = user_id ? { user_id } : { guest_id: guestId };
+  const orders = await Order.find(query)
+    .populate({
+      path: "user_id",
+      select: "username email",
+      match: { _id: { $exists: true } },
+    })
+    .populate("products.product_id")
+    .sort({ createdAt: -1 });
+  res.status(200).json(orders);
+});
 
 const getOrders = asyncHandler(async (req, res) => {
   try {
@@ -199,7 +238,9 @@ const getOrders = asyncHandler(async (req, res) => {
     res.status(200).json(orders);
   } catch (error) {
     console.error("Get orders error:", error.message, error.stack);
-    res.status(500).json({ message: error.message || "Failed to fetch orders" });
+    res
+      .status(500)
+      .json({ message: error.message || "Failed to fetch orders" });
   }
 });
 
@@ -265,6 +306,7 @@ const deleteOrder = asyncHandler(async (req, res) => {
 
 module.exports = {
   createOrder,
+  getMyOrders,
   getOrders,
   getOrderById,
   updateOrderStatus,

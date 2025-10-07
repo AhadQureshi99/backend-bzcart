@@ -50,6 +50,11 @@ const orderSchema = mongoose.Schema(
       required: true,
       min: 0,
     },
+    shipping_amount: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
     discount_applied: {
       type: Boolean,
       default: false,
