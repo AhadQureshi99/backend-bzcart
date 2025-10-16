@@ -342,6 +342,7 @@ const createProduct = handler(async (req, res) => {
     payment,
     isNewArrival,
     isBestSeller,
+    highlights,
   } = req.body;
 
   console.log("createProduct - Request body:", {
@@ -353,6 +354,7 @@ const createProduct = handler(async (req, res) => {
     product_code,
     shipping,
     payment,
+    highlights,
   });
 
   if (
@@ -476,6 +478,7 @@ const createProduct = handler(async (req, res) => {
       payment: payment || ["Cash on Delivery"],
       isNewArrival: Boolean(isNewArrival),
       isBestSeller: Boolean(isBestSeller),
+      highlights: Array.isArray(highlights) ? highlights : [],
     });
 
     const populatedProduct = await productModel
@@ -590,6 +593,7 @@ const updateProduct = handler(async (req, res) => {
       payment,
       isNewArrival,
       isBestSeller,
+      highlights,
     } = req.body;
 
     if (category) {
@@ -733,6 +737,8 @@ const updateProduct = handler(async (req, res) => {
             isBestSeller !== undefined
               ? Boolean(isBestSeller)
               : product.isBestSeller,
+          highlights:
+            highlights !== undefined ? highlights : product.highlights,
         },
         { new: true }
       )
