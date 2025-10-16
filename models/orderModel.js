@@ -35,7 +35,6 @@ const orderSchema = mongoose.Schema(
         },
         selected_size: {
           type: String,
-          enum: ["S", "M", "L", "XL", null], // Allow null for products without sizes
           required: false,
         },
       },

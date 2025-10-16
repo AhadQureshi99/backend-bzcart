@@ -63,7 +63,10 @@ const addToCart = handler(async (req, res) => {
     let canAddToCart = false;
     if (product.sizes && product.sizes.length > 0) {
       if (!selected_size) {
-        console.log("addToCart - Missing selected_size for sized product:", product_id);
+        console.log(
+          "addToCart - Missing selected_size for sized product:",
+          product_id
+        );
         res.status(400);
         throw new Error("Size is required for this product");
       }
@@ -95,8 +98,18 @@ const addToCart = handler(async (req, res) => {
     }
 
     const query = user_id
-      ? { user_id, product_id, selected_image, selected_size: selected_size || null }
-      : { guest_id: guestId, product_id, selected_image, selected_size: selected_size || null };
+      ? {
+          user_id,
+          product_id,
+          selected_image,
+          selected_size: selected_size || null,
+        }
+      : {
+          guest_id: guestId,
+          product_id,
+          selected_image,
+          selected_size: selected_size || null,
+        };
 
     console.log("addToCart - Query for existing cart item:", query);
 
@@ -108,7 +121,9 @@ const addToCart = handler(async (req, res) => {
         if (newQuantity > size.stock) {
           console.log("addToCart - Exceeds stock for size:", selected_size);
           res.status(400);
-          throw new Error(`Cannot add more: Size ${selected_size} stock limit reached`);
+          throw new Error(
+            `Cannot add more: Size ${selected_size} stock limit reached`
+          );
         }
       } else {
         if (newQuantity > product.product_stock) {
@@ -227,8 +242,18 @@ const removeFromCart = handler(async (req, res) => {
 
   try {
     const query = user_id
-      ? { user_id, product_id, selected_image, selected_size: selected_size || null }
-      : { guest_id: guestId, product_id, selected_image, selected_size: selected_size || null };
+      ? {
+          user_id,
+          product_id,
+          selected_image,
+          selected_size: selected_size || null,
+        }
+      : {
+          guest_id: guestId,
+          product_id,
+          selected_image,
+          selected_size: selected_size || null,
+        };
     let cart = await cartModel.findOne(query);
 
     if (!cart) {
@@ -249,7 +274,10 @@ const removeFromCart = handler(async (req, res) => {
     const updatedCarts = await cartModel
       .find(user_id ? { user_id } : { guest_id: guestId })
       .populate("product_id");
-    console.log("removeFromCart - Returning updated cart:", updatedCarts.length);
+    console.log(
+      "removeFromCart - Returning updated cart:",
+      updatedCarts.length
+    );
     res.status(200).json(updatedCarts);
   } catch (err) {
     console.error("removeFromCart - Error:", err.message);
@@ -376,7 +404,10 @@ const createProduct = handler(async (req, res) => {
       basePrice <= 0 ||
       discountedPrice <= 0
     ) {
-      console.log("createProduct - Invalid prices:", { basePrice, discountedPrice });
+      console.log("createProduct - Invalid prices:", {
+        basePrice,
+        discountedPrice,
+      });
       res.status(400);
       throw new Error("Prices must be valid positive numbers");
     }
@@ -400,12 +431,13 @@ const createProduct = handler(async (req, res) => {
     }
 
     if (sizes && Array.isArray(sizes)) {
-      const validSizes = ["S", "M", "L", "XL"];
       for (const size of sizes) {
-        if (!validSizes.includes(size.size) || isNaN(size.stock) || size.stock < 0) {
+        if (!size.size || isNaN(size.stock) || size.stock < 0) {
           console.log("createProduct - Invalid size or stock:", size);
           res.status(400);
-          throw new Error("Invalid size or stock value. Sizes must be S, M, L, or XL.");
+          throw new Error(
+            "Size value is required and stock must be a non-negative number."
+          );
         }
       }
     }
@@ -511,7 +543,10 @@ const getProductsByCategory = handler(async (req, res) => {
       .populate("subcategories")
       .populate("reviews");
     if (!products || products.length === 0) {
-      console.log("getProductsByCategory - No products found for category:", categoryId);
+      console.log(
+        "getProductsByCategory - No products found for category:",
+        categoryId
+      );
       res.status(404);
       throw new Error("No products found in this category or subcategory");
     }
@@ -591,7 +626,9 @@ const updateProduct = handler(async (req, res) => {
     let shippingCost =
       shipping !== undefined ? Number(shipping) : product.shipping;
     let stock =
-      product_stock !== undefined ? Number(product_stock) : product.product_stock;
+      product_stock !== undefined
+        ? Number(product_stock)
+        : product.product_stock;
 
     if (
       product_base_price !== undefined &&
@@ -636,10 +673,16 @@ const updateProduct = handler(async (req, res) => {
     if (sizes && Array.isArray(sizes)) {
       const validSizes = ["S", "M", "L", "XL"];
       for (const size of sizes) {
-        if (!validSizes.includes(size.size) || isNaN(size.stock) || size.stock < 0) {
+        if (
+          !validSizes.includes(size.size) ||
+          isNaN(size.stock) ||
+          size.stock < 0
+        ) {
           console.log("updateProduct - Invalid size or stock:", size);
           res.status(400);
-          throw new Error("Invalid size or stock value. Sizes must be S, M, L, or XL.");
+          throw new Error(
+            "Invalid size or stock value. Sizes must be S, M, L, or XL."
+          );
         }
       }
     }
@@ -666,7 +709,8 @@ const updateProduct = handler(async (req, res) => {
         req.params.id,
         {
           product_name: product_name || product.product_name,
-          product_description: product_description || product.product_description,
+          product_description:
+            product_description || product.product_description,
           product_base_price: basePrice,
           product_discounted_price: discountedPrice,
           product_stock: stock,
@@ -822,7 +866,9 @@ const getReviews = handler(async (req, res) => {
     const reviews = await reviewModel
       .find({ product_id })
       .populate("user_id", "username");
-    console.log(`getReviews - Found ${reviews.length} reviews for product_id: ${product_id}`);
+    console.log(
+      `getReviews - Found ${reviews.length} reviews for product_id: ${product_id}`
+    );
     res.status(200).json(reviews);
   } catch (err) {
     console.error("getReviews - Error:", err.message);
