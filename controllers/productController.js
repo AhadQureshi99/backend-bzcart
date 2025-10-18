@@ -675,17 +675,13 @@ const updateProduct = handler(async (req, res) => {
     }
 
     if (sizes && Array.isArray(sizes)) {
-      const validSizes = ["S", "M", "L", "XL"];
+      // Accept any non-empty size identifier and require a non-negative numeric stock
       for (const size of sizes) {
-        if (
-          !validSizes.includes(size.size) ||
-          isNaN(size.stock) ||
-          size.stock < 0
-        ) {
+        if (!size.size || isNaN(Number(size.stock)) || Number(size.stock) < 0) {
           console.log("updateProduct - Invalid size or stock:", size);
           res.status(400);
           throw new Error(
-            "Invalid size or stock value. Sizes must be S, M, L, or XL."
+            "Size value is required and stock must be a non-negative number."
           );
         }
       }
