@@ -18,7 +18,22 @@ const createOrder = asyncHandler(async (req, res) => {
     guestId,
     discount_code,
   } = req.body;
-  const user_id = req.user ? req.user._id : guestId;
+  // For authenticated users, use req.user.id (to match token)
+  const isAuthenticated = !!req.user;
+  const userId = isAuthenticated ? req.user.id : undefined;
+  console.log("createOrder - Auth status:", {
+    isAuthenticated,
+    userId,
+    guestId,
+  });
+
+  // Log user info for debugging
+  if (isAuthenticated) {
+    console.log("createOrder - Authenticated user info:", {
+      id: req.user.id,
+      username: req.user.username,
+    });
+  }
 
   // Validate required fields
   if (!products || !Array.isArray(products) || products.length === 0) {
@@ -158,9 +173,10 @@ const createOrder = asyncHandler(async (req, res) => {
   }
 
   // Create order
+  console.log("createOrder - Creating order with:", { userId, guestId });
   const order = await Order.create({
-    user_id: user_id && !user_id.startsWith("guest_") ? user_id : undefined,
-    guest_id: guestId || undefined,
+    user_id: userId, // Use userId (from req.user.id) for authenticated users
+    guest_id: !userId ? guestId : undefined, // Only use guestId for non-authenticated users
     full_name,
     products: products.map((item) => ({
       product_id: item.product_id,
@@ -194,35 +210,61 @@ const createOrder = asyncHandler(async (req, res) => {
   );
 
   // Clear cart
-  const query =
-    user_id && !user_id.startsWith("guest_")
-      ? { user_id }
-      : { guest_id: guestId };
-  await Cart.deleteMany(query);
+  const cartQuery = isAuthenticated
+    ? { user_id: userId }
+    : { guest_id: guestId };
+  await Cart.deleteMany(cartQuery);
 
   console.log("createOrder - Order created successfully:", order._id);
   res.status(201).json(order);
 });
 
 const getMyOrders = asyncHandler(async (req, res) => {
-  const user_id = req.user?._id;
-  const { guestId } = req.query;
+  // Debug logs: print auth header, req.user, req.params, and req.query
+  console.log("getMyOrders - Authorization header:", req.headers.authorization);
+  console.log("getMyOrders - req.user:", req.user);
+  console.log("getMyOrders - req.params:", req.params);
+  console.log("getMyOrders - req.query:", req.query);
 
-  if (!user_id && !guestId) {
-    res.status(400);
-    throw new Error("User ID or guest ID is required");
+  let query = {};
+  // For authenticated users, use their ID (using .id to match token generation)
+  if (req.user && req.user.id) {
+    query.user_id = req.user.id;
+    console.log("getMyOrders - Using authenticated user ID:", req.user.id);
   }
+  // If guestId provided in query params, use it for guest orders
+  else if (req.query.guestId) {
+    query.guest_id = req.query.guestId;
+    console.log("getMyOrders - Using guestId from query:", req.query.guestId);
+  } else {
+    console.log("getMyOrders - No valid identifier found");
+    return res.status(200).json([]);
+  }
+  console.log("getMyOrders - MongoDB query:", query);
 
-  const query = user_id ? { user_id } : { guest_id: guestId };
-  const orders = await Order.find(query)
-    .populate({
-      path: "user_id",
-      select: "username email",
-      match: { _id: { $exists: true } },
-    })
-    .populate("products.product_id")
-    .sort({ createdAt: -1 });
-  res.status(200).json(orders);
+  try {
+    const orders = await Order.find(query)
+      .populate({
+        path: "user_id",
+        select: "username email",
+        match: { _id: { $exists: true } },
+      })
+      .populate("products.product_id")
+      .sort({ createdAt: -1 });
+
+    console.log("getMyOrders - Query results:", {
+      count: orders.length,
+      orderIds: orders.map((o) => o._id),
+      queryUsed: query,
+    });
+
+    res.status(200).json(orders || []);
+  } catch (err) {
+    console.error("getMyOrders error:", err.message, err.stack);
+    res
+      .status(500)
+      .json({ message: err.message || "Failed to fetch user orders" });
+  }
 });
 
 const getOrders = asyncHandler(async (req, res) => {

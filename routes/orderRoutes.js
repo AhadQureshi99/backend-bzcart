@@ -11,9 +11,10 @@ const authHandler = require("../middlewares/authMiddleware"); // Add auth for pr
 
 const orderRouter = express.Router();
 
-// Public route for creating orders (guests can create orders)
-orderRouter.post("/create-order", createOrder);
-orderRouter.get("/my-orders", getMyOrders);
+// Routes that support both authenticated users and guests
+// authHandler allows requests without tokens but sets req.user when token is present
+orderRouter.post("/create-order", authHandler, createOrder);
+orderRouter.get("/my-orders", authHandler, getMyOrders); // Removed userId param since we get it from auth token
 
 // Protected routes for authenticated users/admins
 orderRouter.get("/orders", getOrders);
