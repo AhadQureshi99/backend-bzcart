@@ -1,0 +1,4 @@
+- [x] Update email templates in controllers/userController.js to change 'from' to 'info@bzcart', make background orange, and update branding to BZ Cart
+- [x] Update email templates in controllers/adminController.js to change 'from' to 'info@bzcart', make background orange, and update branding to BZ Cart
+- [x] Test email functionality - rendered HTML templates show orange background and BZ Cart branding correctly
+- [x] Make email templates more professional and appealing with modern design, gradients, and better typography

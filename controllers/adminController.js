@@ -20,90 +20,119 @@ const sendOTP = (email, otp, id) => {
   });
 
   const mailOptions = {
-    from: process.env.MAIL_USER,
+    from: "info@bzcart",
     to: email,
-    subject: "OTP verification",
+    subject: "Your BZ Cart Admin Verification Code",
     html: `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OTP Email Card</title>
+  <title>BZ Cart - Admin OTP Verification</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
       margin: 0;
       padding: 0;
-      background-color: #f4f4f9;
+      background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);
+      min-height: 100vh;
     }
     .email-container {
       max-width: 600px;
-      margin: 20px auto;
+      margin: 40px auto;
       background: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
       overflow: hidden;
+      border: 1px solid #e0e0e0;
     }
     .header {
-      background: #007bff;
+      background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);
       color: #ffffff;
       text-align: center;
-      padding: 20px;
-      font-size: 24px;
+      padding: 30px 20px;
+      font-size: 28px;
+      font-weight: bold;
+      position: relative;
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 2px;
+    }
+    .logo {
+      font-size: 36px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .body {
-      padding: 20px;
+      padding: 40px 30px;
       text-align: center;
+      color: #333333;
+    }
+    .greeting {
+      font-size: 18px;
+      margin-bottom: 20px;
+      color: #555555;
     }
     .otp {
-      font-size: 32px;
+      font-size: 48px;
       font-weight: bold;
-      color: #333333;
-      margin: 20px 0;
-      letter-spacing: 4px;
+      color: #ffa500;
+      margin: 30px 0;
+      letter-spacing: 8px;
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 12px;
+      border: 2px solid #ffa500;
+      display: inline-block;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     .note {
-      color: #555555;
+      color: #777777;
       font-size: 14px;
-      margin-top: 10px;
-    }
-    .cta-button {
-      display: inline-block;
       margin-top: 20px;
-      padding: 12px 30px;
-      font-size: 16px;
-      color: #ffffff;
-      background: #007bff;
-      border: none;
-      border-radius: 6px;
-      text-decoration: none;
-      cursor: pointer;
-    }
-    .cta-button:hover {
-      background: #0056b3;
+      line-height: 1.5;
     }
     .footer {
-      background: #f4f4f9;
-      padding: 10px;
+      background: #f8f8f8;
+      padding: 20px;
       text-align: center;
       font-size: 12px;
-      color: #888888;
+      color: #999999;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+    .highlight {
+      color: #ffa500;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
   <div class="email-container">
     <div class="header">
-      Verification Code
+      <div class="logo">bzcart.store</div>
+      Admin Verification Code
     </div>
     <div class="body">
-      <p>Use the following OTP to complete your process:</p>
+      <p class="greeting">Hello Admin! Welcome to the BZ Cart management system.</p>
+      <p>Use the following OTP to complete your admin verification process:</p>
       <div class="otp">${otp}</div>
-      <a href="http://localhost:3000/admin/otp/${id}" style='color:white;font-weight:bold;background:green;' class="cta-button">Verify Now</a>
-      <p class="note">This OTP is valid for 10 minutes. Do not share it with anyone.</p>
+      <p class="note">This OTP is valid for <span class="highlight">10 minutes</span>. Do not share it with anyone for security reasons.</p>
     </div>
     <div class="footer">
-      If you didn’t request this, please ignore this email or contact support.
+      <p>If you didn’t request this, please ignore this email or contact our support team.</p>
+      <p>&copy; 2023 BZ Cart. All rights reserved.</p>
     </div>
   </div>
 </body>
