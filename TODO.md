@@ -1,4 +1,9 @@
-- [x] Update email templates in controllers/userController.js to change 'from' to 'info@bzcart', make background orange, and update branding to BZ Cart
-- [x] Update email templates in controllers/adminController.js to change 'from' to 'info@bzcart', make background orange, and update branding to BZ Cart
-- [x] Test email functionality - rendered HTML templates show orange background and BZ Cart branding correctly
-- [x] Make email templates more professional and appealing with modern design, gradients, and better typography
+# TODO: Make Email Templates Responsive
+
+- [x] Edit test_otp_user.html: Add media queries for screens < 600px to reduce padding, font sizes, and adjust spacing for mobile responsiveness.
+- [x] Edit test_discount_user.html: Add media queries for screens < 600px to reduce padding, font sizes, and adjust spacing for mobile responsiveness.
+- [x] Edit test_otp_admin.html: Add media queries for screens < 600px to reduce padding, font sizes, adjust button padding, and spacing for mobile responsiveness.
+- [x] Edit test_otp_user_professional.html: Add media queries for screens < 600px to reduce padding, font sizes, and adjust spacing for mobile responsiveness.
+- [x] Edit test_otp_admin_professional.html: Add media queries for screens < 600px to reduce padding, font sizes, adjust button padding, and spacing for mobile responsiveness.
+- [x] Edit test_discount_user_professional.html: Add media queries for screens < 600px to reduce padding, font sizes, and adjust spacing for mobile responsiveness.
+- [x] Test all templates: Browser tool disabled, unable to perform live testing. Templates updated with responsive media queries for screens < 600px.
