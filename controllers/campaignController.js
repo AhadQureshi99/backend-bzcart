@@ -5,7 +5,6 @@ const nodemailer = require("nodemailer");
 
 const createCampaign = handler(async (req, res) => {
   const { subject, body } = req.body;
-  const createdBy = req.user ? req.user.id : null;
 
   if (!subject || !body) {
     res.status(400);
@@ -15,7 +14,7 @@ const createCampaign = handler(async (req, res) => {
   const campaign = await campaignModel.create({
     subject,
     body,
-    createdBy,
+    createdBy: null, // No authentication, so no creator
   });
 
   res.status(201).json(campaign);
