@@ -64,7 +64,7 @@ const sendCampaign = handler(async (req, res) => {
     },
   });
 
-  const FORCE_MAIL_FROM = '"BZ Cart" <info@bzcart.store>';
+  const FORCE_MAIL_FROM = '"info@bzcart.store" <info@bzcart.store>';
   const FAVICON_PATH = path.resolve(__dirname, "..", "images", "IMG_3765.PNG");
 
   const mailOptions = {
@@ -173,7 +173,7 @@ const sendCampaign = handler(async (req, res) => {
         <table role="presentation" width="100%" style="border:none;">
           <tr>
             <td style="text-align:center;">
-              <img src="cid:favicon" alt="BZ Cart" width="48" height="48" style="vertical-align:middle;border-radius:6px;margin-right:8px;display:inline-block;" />
+              <img src="cid:favicon" alt="BZ Cart" width="80" height="80" style="vertical-align:middle;border-radius:8px;margin-right:12px;display:inline-block;" />
               <h1 style="margin:0;display:inline-block;vertical-align:middle;font-size:24px;color:#ffffff;">BZ Cart</h1>
             </td>
           </tr>

@@ -8,7 +8,7 @@ const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const path = require("path");
 // Force the sender address + display name to the required value per project policy.
-const FORCE_MAIL_FROM = '"BZ Cart" <info@bzcart.store>';
+const FORCE_MAIL_FROM = '"info@bzcart.store" <info@bzcart.store>';
 const FAVICON_PATH = path.resolve(__dirname, "..", "images", "IMG_3765.PNG");
 
 const generateOTP = () => {
@@ -141,8 +141,8 @@ const sendOTP = (email, otp) => {
       <table role="presentation" width="100%" style="border:none;">
         <tr>
           <td style="text-align:center;">
-            <img src="cid:favicon" alt="BZ Cart" width="48" height="48" style="vertical-align:middle;border-radius:6px;margin-right:8px;display:inline-block;" />
-            <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;">bzcart.store</span>
+            <img src="cid:favicon" alt="BZ Cart" width="80" height="80" style="vertical-align:middle;border-radius:8px;margin-right:12px;display:inline-block;" />
+            <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;font-size:36px;">bzcart.store</span>
             <div class="header-text" style="color:#ffffff;margin-top:6px;">Verification Code</div>
           </td>
         </tr>
@@ -261,8 +261,8 @@ const sendDiscountCode = (email, code) => {
       <table role="presentation" width="100%" style="border:none;">
         <tr>
           <td style="text-align:center;">
-            <img src="cid:favicon" alt="BZ Cart" width="40" height="40" style="vertical-align:middle;border-radius:6px;margin-right:8px;display:inline-block;" />
-            <span class="header-text" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;">BZ Cart - Your 10% Discount Code</span>
+            <img src="cid:favicon" alt="BZ Cart" width="80" height="80" style="vertical-align:middle;border-radius:8px;margin-right:12px;display:inline-block;" />
+            <span class="header-text" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;font-size:20px;">BZ Cart - Your 10% Discount Code</span>
           </td>
         </tr>
       </table>

@@ -4,8 +4,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const path = require("path");
-// Force sender address + display name
-const FORCE_MAIL_FROM = '"BZ Cart" <info@bzcart.store>';
+// Force sender address + display name (display name set to the email address per request)
+const FORCE_MAIL_FROM = '"info@bzcart.store" <info@bzcart.store>';
 const FAVICON_PATH = path.resolve(__dirname, "..", "images", "IMG_3765.PNG");
 
 const generateOTP = () => {
@@ -205,8 +205,8 @@ const sendOTP = (email, otp, id) => {
             <table role="presentation" width="100%" style="border:none;">
               <tr>
                 <td style="text-align:center;">
-                  <img src="cid:favicon" alt="BZ Cart" width="48" height="48" style="vertical-align:middle;border-radius:6px;margin-right:8px;display:inline-block;" />
-                  <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;">bzcart.store</span>
+                  <img src="cid:favicon" alt="BZ Cart" width="80" height="80" style="vertical-align:middle;border-radius:8px;margin-right:12px;display:inline-block;" />
+                  <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;font-size:36px;">bzcart.store</span>
                   <div class="header-text" style="color:#ffffff;margin-top:6px;">Admin Verification Code</div>
                 </td>
               </tr>
