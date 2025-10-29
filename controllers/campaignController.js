@@ -64,7 +64,7 @@ const sendCampaign = handler(async (req, res) => {
     },
   });
 
-  const FORCE_MAIL_FROM = "info@bzcart.store";
+  const FORCE_MAIL_FROM = '\"BZ Cart\" <info@bzcart.store>';
 
   const mailOptions = {
     from: FORCE_MAIL_FROM,
@@ -91,7 +91,7 @@ const sendCampaign = handler(async (req, res) => {
 <body>
   <div class="campaign-container">
     <div class="campaign-logo">
-      <img src="cid:bzcartlogo" alt="BZ Cart" width="64" height="64" style="display:block;margin:0 auto;" />
+      <!-- logo not embedded in emails per project requirement -->
     </div>
     <div class="campaign-body">
       ${campaign.body}
@@ -99,13 +99,7 @@ const sendCampaign = handler(async (req, res) => {
   </div>
 </body>
 </html>`,
-    attachments: [
-      {
-        filename: "IMG_3765.PNG",
-        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
-        cid: "bzcartlogo",
-      },
-    ],
+    // Logo not attached to campaign emails per project requirement
   };
 
   try {

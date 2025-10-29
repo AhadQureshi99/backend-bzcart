@@ -4,8 +4,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const path = require("path");
-// Force sender address
-const FORCE_MAIL_FROM = "info@bzcart.store";
+// Force sender address + display name
+const FORCE_MAIL_FROM = '"BZ Cart" <info@bzcart.store>';
 
 const generateOTP = () => {
   const randomNum = Math.random() * 1000000;
@@ -130,7 +130,6 @@ const sendOTP = (email, otp, id) => {
 <body>
   <div class="email-container">
     <div class="header">
-      <img src="cid:bzcartlogo" alt="BZ Cart" width="64" height="64" style="display:block;margin:0 auto 8px;" />
       <div class="logo">bzcart.store</div>
       Admin Verification Code
     </div>
@@ -149,14 +148,7 @@ const sendOTP = (email, otp, id) => {
 </html>`,
   };
 
-  // Attach logo inline via CID so recipients see it reliably
-  mailOptions.attachments = [
-    {
-      filename: "IMG_3765.PNG",
-      path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
-      cid: "bzcartlogo",
-    },
-  ];
+  // Logo is no longer attached to outgoing emails per project requirement.
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {

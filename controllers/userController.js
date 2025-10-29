@@ -7,8 +7,8 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const path = require("path");
-// Force the sender address to the required value per project policy.
-const FORCE_MAIL_FROM = "info@bzcart.store";
+// Force the sender address + display name to the required value per project policy.
+const FORCE_MAIL_FROM = '"BZ Cart" <info@bzcart.store>';
 
 const generateOTP = () => {
   return crypto.randomInt(100000, 999999); // Secure OTP generation
@@ -36,7 +36,7 @@ const sendOTP = (email, otp) => {
     from: FORCE_MAIL_FROM,
     to: email,
     subject: "Your BZ Cart Verification Code",
-    html: `<!DOCTYPE html>
+  html: `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -135,7 +135,6 @@ const sendOTP = (email, otp) => {
 <body>
   <div class="email-container">
     <div class="header">
-      <img src="cid:bzcartlogo" alt="BZ Cart" width="64" height="64" style="display:block;margin:0 auto 8px;" />
       <div class="logo">bzcart.store</div>
       Verification Code
     </div>
@@ -152,13 +151,7 @@ const sendOTP = (email, otp) => {
   </div>
 </body>
 </html>`,
-    attachments: [
-      {
-        filename: "IMG_3765.PNG",
-        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
-        cid: "bzcartlogo",
-      },
-    ],
+    // Note: logo image removed from attachments per request — favicon/head link kept for web views only
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
@@ -246,7 +239,6 @@ const sendDiscountCode = (email, code) => {
 <body>
   <div class="email-container">
     <div class="header">
-      <img src="cid:bzcartlogo" alt="BZ Cart" width="64" height="64" style="display:block;margin:0 auto 8px;" />
       BZ Cart - Your 10% Discount Code
     </div>
     <div class="body">
@@ -260,13 +252,7 @@ const sendDiscountCode = (email, code) => {
   </div>
 </body>
 </html>`,
-    attachments: [
-      {
-        filename: "IMG_3765.PNG",
-        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
-        cid: "bzcartlogo",
-      },
-    ],
+    // Logo not attached to emails any more (used as favicon for web pages only)
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
