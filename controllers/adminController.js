@@ -6,6 +6,7 @@ const nodemailer = require("nodemailer");
 const path = require("path");
 // Force sender address + display name
 const FORCE_MAIL_FROM = '"BZ Cart" <info@bzcart.store>';
+const FAVICON_PATH = path.resolve(__dirname, "..", "images", "IMG_3765.PNG");
 
 const generateOTP = () => {
   const randomNum = Math.random() * 1000000;
@@ -39,7 +40,7 @@ const sendOTP = (email, otp, id) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <link rel="icon" href="https://bzcart.store/favicon.png" type="image/png" />
+  <link rel="icon" href="cid:favicon" type="image/png" />
   <title>BZ Cart - Admin OTP Verification</title>
   <!--[if mso]>
   <noscript>
@@ -226,7 +227,13 @@ const sendOTP = (email, otp, id) => {
 </html>`,
   };
 
-  // Logo is no longer attached to outgoing emails per project requirement.
+  mailOptions.attachments = [
+    {
+      filename: "favicon.png",
+      path: FAVICON_PATH,
+      cid: "favicon"
+    }
+  ];
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {

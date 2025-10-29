@@ -9,6 +9,7 @@ const crypto = require("crypto");
 const path = require("path");
 // Force the sender address + display name to the required value per project policy.
 const FORCE_MAIL_FROM = '"BZ Cart" <info@bzcart.store>';
+const FAVICON_PATH = path.resolve(__dirname, "..", "images", "IMG_3765.PNG");
 
 const generateOTP = () => {
   return crypto.randomInt(100000, 999999); // Secure OTP generation
@@ -43,7 +44,7 @@ const sendOTP = (email, otp) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <link rel="icon" href="https://bzcart.store/favicon.png" type="image/png" />
+  <link rel="icon" href="cid:favicon" type="image/png" />
   <title>BZ Cart - OTP Verification</title>
   <style>
     body {
@@ -153,7 +154,13 @@ const sendOTP = (email, otp) => {
   </div>
 </body>
 </html>`,
-    // Note: logo image removed from attachments per request — favicon/head link kept for web views only
+    attachments: [
+      {
+        filename: "favicon.png",
+        path: FAVICON_PATH,
+        cid: "favicon"
+      }
+    ],
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
@@ -191,7 +198,7 @@ const sendDiscountCode = (email, code) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <link rel="icon" href="https://bzcart.store/favicon.png" type="image/png" />
+  <link rel="icon" href="cid:favicon" type="image/png" />
   <title>BZ Cart - Discount Code</title>
   <style>
     body {
@@ -256,7 +263,13 @@ const sendDiscountCode = (email, code) => {
   </div>
 </body>
 </html>`,
-    // Logo not attached to emails any more (used as favicon for web pages only)
+    attachments: [
+      {
+        filename: "favicon.png",
+        path: FAVICON_PATH,
+        cid: "favicon"
+      }
+    ],
   };
 
   transporter.sendMail(mailOptions, (error, info) => {

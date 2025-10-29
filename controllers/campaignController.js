@@ -65,6 +65,7 @@ const sendCampaign = handler(async (req, res) => {
   });
 
   const FORCE_MAIL_FROM = '"BZ Cart" <info@bzcart.store>';
+  const FAVICON_PATH = path.resolve(__dirname, "..", "images", "IMG_3765.PNG");
 
   const mailOptions = {
     from: FORCE_MAIL_FROM,
@@ -82,7 +83,7 @@ const sendCampaign = handler(async (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <link rel="icon" href="https://bzcart.store/favicon.png" type="image/png" />
+  <link rel="icon" href="cid:favicon" type="image/png" />
   <title>${campaign.subject}</title>
   <!--[if mso]>
   <noscript>
@@ -181,7 +182,13 @@ const sendCampaign = handler(async (req, res) => {
   <![endif]-->
 </body>
 </html>`,
-    // Logo not attached to campaign emails per project requirement
+    attachments: [
+      {
+        filename: "favicon.png",
+        path: FAVICON_PATH,
+        cid: "favicon"
+      }
+    ],
   };
 
   try {
