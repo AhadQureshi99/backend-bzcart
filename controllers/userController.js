@@ -138,8 +138,15 @@ const sendOTP = (email, otp) => {
 <body>
   <div class="email-container">
     <div class="header">
-      <div class="logo">bzcart.store</div>
-      Verification Code
+      <table role="presentation" width="100%" style="border:none;">
+        <tr>
+          <td style="text-align:center;">
+            <img src="cid:favicon" alt="BZ Cart" width="48" height="48" style="vertical-align:middle;border-radius:6px;margin-right:8px;display:inline-block;" />
+            <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;">bzcart.store</span>
+            <div class="header-text" style="color:#ffffff;margin-top:6px;">Verification Code</div>
+          </td>
+        </tr>
+      </table>
     </div>
     <div class="body">
       <p class="greeting">Hello! Welcome to BZ Cart, your ultimate e-commerce destination.</p>
@@ -159,6 +166,7 @@ const sendOTP = (email, otp) => {
         filename: "favicon.png",
         path: FAVICON_PATH,
         cid: "favicon",
+        contentDisposition: "inline",
       },
     ],
   };
@@ -250,7 +258,14 @@ const sendDiscountCode = (email, code) => {
 <body>
   <div class="email-container">
     <div class="header">
-      BZ Cart - Your 10% Discount Code
+      <table role="presentation" width="100%" style="border:none;">
+        <tr>
+          <td style="text-align:center;">
+            <img src="cid:favicon" alt="BZ Cart" width="40" height="40" style="vertical-align:middle;border-radius:6px;margin-right:8px;display:inline-block;" />
+            <span class="header-text" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;">BZ Cart - Your 10% Discount Code</span>
+          </td>
+        </tr>
+      </table>
     </div>
     <div class="body">
       <p>Thank you for subscribing! Use the following code at checkout to get 10% off your first order:</p>
@@ -268,6 +283,7 @@ const sendDiscountCode = (email, code) => {
         filename: "favicon.png",
         path: FAVICON_PATH,
         cid: "favicon",
+        contentDisposition: "inline",
       },
     ],
   };

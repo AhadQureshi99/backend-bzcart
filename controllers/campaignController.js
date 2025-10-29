@@ -170,8 +170,15 @@ const sendCampaign = handler(async (req, res) => {
   <![endif]-->
   <div class="campaign-container">
     <div class="campaign-header">
-      <h1 style="margin:0;font-size:24px;color:#ffffff;">BZ Cart</h1>
-    </div>
+        <table role="presentation" width="100%" style="border:none;">
+          <tr>
+            <td style="text-align:center;">
+              <img src="cid:favicon" alt="BZ Cart" width="48" height="48" style="vertical-align:middle;border-radius:6px;margin-right:8px;display:inline-block;" />
+              <h1 style="margin:0;display:inline-block;vertical-align:middle;font-size:24px;color:#ffffff;">BZ Cart</h1>
+            </td>
+          </tr>
+        </table>
+      </div>
     <div class="campaign-body">
       ${campaign.body}
     </div>
@@ -187,6 +194,7 @@ const sendCampaign = handler(async (req, res) => {
         filename: "favicon.png",
         path: FAVICON_PATH,
         cid: "favicon",
+        contentDisposition: "inline",
       },
     ],
   };

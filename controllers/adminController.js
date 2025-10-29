@@ -202,8 +202,15 @@ const sendOTP = (email, otp, id) => {
       <td>
         <div class="email-container">
           <div class="header" style="background:linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);text-align:center;padding:30px 20px;">
-            <div class="logo" style="color:#ffffff;">bzcart.store</div>
-            <div class="header-text" style="color:#ffffff;">Admin Verification Code</div>
+            <table role="presentation" width="100%" style="border:none;">
+              <tr>
+                <td style="text-align:center;">
+                  <img src="cid:favicon" alt="BZ Cart" width="48" height="48" style="vertical-align:middle;border-radius:6px;margin-right:8px;display:inline-block;" />
+                  <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;">bzcart.store</span>
+                  <div class="header-text" style="color:#ffffff;margin-top:6px;">Admin Verification Code</div>
+                </td>
+              </tr>
+            </table>
           </div>
           <div class="body" style="background:#ffffff;padding:40px 30px;text-align:center;">
             <p class="greeting" style="color:#555555;margin-bottom:20px;">Hello Admin! Welcome to the BZ Cart management system.</p>
@@ -232,6 +239,7 @@ const sendOTP = (email, otp, id) => {
       filename: "favicon.png",
       path: FAVICON_PATH,
       cid: "favicon",
+      contentDisposition: "inline",
     },
   ];
 
