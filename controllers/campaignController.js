@@ -74,29 +74,111 @@ const sendCampaign = handler(async (req, res) => {
     // always include the favicon and a visible logo at the top of the
     // message. Note: for real production emails, use an absolute URL or
     // CID attachments so recipients can load the image.
-    html: `<!DOCTYPE html>
-<html lang="en">
+    html: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="Content-Type" content="text/html charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <link rel="icon" href="https://bzcart.store/favicon.png" type="image/png" />
   <title>${campaign.subject}</title>
-  <link rel="icon" href="./images/IMG_3765.PNG" type="image/png" />
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
   <style>
-    /* Minimal reset for campaign wrapper */
-    body { font-family: Arial, Helvetica, sans-serif; margin:0; padding:0; }
-    .campaign-container { max-width:600px; margin:20px auto; }
-    .campaign-logo { text-align:center; padding:16px 0; }
+    /* Email client resets */
+    body, #bodyTable {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+    img {
+      -ms-interpolation-mode: bicubic;
+      border: 0;
+      height: auto;
+      line-height: 100%;
+      outline: none;
+      text-decoration: none;
+    }
+    table {
+      border-collapse: collapse !important;
+    }
+    .campaign-container {
+      max-width: 600px !important;
+      margin: 20px auto !important;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .campaign-header {
+      background: #ffa500;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .campaign-body {
+      padding: 30px 20px;
+      color: #333333;
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.6;
+    }
+    /* Mobile styles */
+    @media screen and (max-width: 600px) {
+      .campaign-container {
+        width: 100% !important;
+        margin: 10px auto !important;
+      }
+      .campaign-body {
+        padding: 20px 15px !important;
+      }
+      /* Force table cells into full width rows */
+      table[class="responsive-table"],
+      table[class="responsive-table"] tbody,
+      table[class="responsive-table"] tr,
+      table[class="responsive-table"] td {
+        display: block !important;
+        width: 100% !important;
+        clear: both;
+      }
+      /* Adjust images for mobile */
+      img[class="responsive-img"] {
+        height: auto !important;
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+    }
   </style>
 </head>
-<body>
+<body style="margin:0;padding:0;background-color:#f6f6f6;">
+  <!--[if mso]>
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" align="center">
+  <tr><td>
+  <![endif]-->
   <div class="campaign-container">
-    <div class="campaign-logo">
-      <!-- logo not embedded in emails per project requirement -->
+    <div class="campaign-header">
+      <h1 style="margin:0;font-size:24px;color:#ffffff;">BZ Cart</h1>
     </div>
     <div class="campaign-body">
       ${campaign.body}
     </div>
   </div>
+  <!--[if mso]>
+  </td></tr>
+  </table>
+  <![endif]-->
 </body>
 </html>`,
     // Logo not attached to campaign emails per project requirement

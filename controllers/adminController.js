@@ -35,80 +35,107 @@ const sendOTP = (email, otp, id) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="./images/IMG_3765.PNG" type="image/png" />
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <link rel="icon" href="https://bzcart.store/favicon.png" type="image/png" />
   <title>BZ Cart - Admin OTP Verification</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
   <style>
-    body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);
-      min-height: 100vh;
+    :root {
+      color-scheme: light;
+      supported-color-schemes: light;
     }
+    /* Reset styles */
+    body, #bodyTable { 
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+    img {
+      -ms-interpolation-mode: bicubic;
+      border: 0;
+      height: auto;
+      line-height: 100%;
+      outline: none;
+      text-decoration: none;
+    }
+    table {
+      border-collapse: collapse !important;
+    }
+    /* Base styles */
     .email-container {
-      max-width: 600px;
-      margin: 40px auto;
+      max-width: 600px !important;
+      margin: 20px auto !important;
       background: #ffffff;
       border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       overflow: hidden;
-      border: 1px solid #e0e0e0;
     }
     .header {
       background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);
-      color: #ffffff;
+      color: #ffffff !important;
       text-align: center;
       padding: 30px 20px;
+    }
+    .header-text {
+      color: #ffffff;
       font-size: 28px;
       font-weight: bold;
-      position: relative;
-    }
-    .header::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 80%;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.3);
-      border-radius: 2px;
+      margin: 0;
+      line-height: 1.3;
+      font-family: Arial, sans-serif;
     }
     .logo {
       font-size: 36px;
       font-weight: bold;
       margin-bottom: 10px;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      font-family: Arial, sans-serif;
+      color: #ffffff;
     }
     .body {
       padding: 40px 30px;
       text-align: center;
-      color: #333333;
+      background: #ffffff;
+      font-family: Arial, sans-serif;
     }
     .greeting {
       font-size: 18px;
       margin-bottom: 20px;
       color: #555555;
+      line-height: 1.6;
     }
     .otp {
       font-size: 48px;
       font-weight: bold;
-      color: #ffa500;
-      margin: 30px 0;
+      color: #ffa500 !important;
+      margin: 30px auto;
       letter-spacing: 8px;
       background: #f9f9f9;
       padding: 20px;
       border-radius: 12px;
       border: 2px solid #ffa500;
       display: inline-block;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      font-family: Arial, sans-serif;
     }
     .note {
       color: #777777;
       font-size: 14px;
       margin-top: 20px;
-      line-height: 1.5;
+      line-height: 1.6;
     }
     .footer {
       background: #f8f8f8;
@@ -117,33 +144,84 @@ const sendOTP = (email, otp, id) => {
       font-size: 12px;
       color: #999999;
       border-top: 1px solid #e0e0e0;
+      font-family: Arial, sans-serif;
     }
     .footer p {
       margin: 5px 0;
+      line-height: 1.6;
     }
     .highlight {
-      color: #ffa500;
+      color: #ffa500 !important;
       font-weight: bold;
+    }
+    /* Outlook-specific styles */
+    [owa] .email-container {
+      min-width: 600px;
+    }
+    /* Mobile styles */
+    @media screen and (max-width: 600px) {
+      .email-container {
+        width: 100% !important;
+        margin: 10px auto !important;
+      }
+      .header {
+        padding: 20px 15px !important;
+      }
+      .header-text {
+        font-size: 24px !important;
+      }
+      .logo {
+        font-size: 32px !important;
+      }
+      .body {
+        padding: 30px 20px !important;
+      }
+      .otp {
+        font-size: 36px !important;
+        letter-spacing: 6px !important;
+        padding: 15px !important;
+        width: 80% !important;
+      }
+      .greeting {
+        font-size: 16px !important;
+      }
+      .note {
+        font-size: 13px !important;
+      }
     }
   </style>
 </head>
-<body>
-  <div class="email-container">
-    <div class="header">
-      <div class="logo">bzcart.store</div>
-      Admin Verification Code
-    </div>
-    <div class="body">
-      <p class="greeting">Hello Admin! Welcome to the BZ Cart management system.</p>
-      <p>Use the following OTP to complete your admin verification process:</p>
-      <div class="otp">${otp}</div>
-      <p class="note">This OTP is valid for <span class="highlight">10 minutes</span>. Do not share it with anyone for security reasons.</p>
-    </div>
-    <div class="footer">
-      <p>If you didn’t request this, please ignore this email or contact our support team.</p>
-      <p>&copy; 2023 BZ Cart. All rights reserved.</p>
-    </div>
-  </div>
+<body style="margin:0;padding:0;background-color:#f6f6f6;font-family:Arial,sans-serif;">
+  <!--[if mso]>
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" align="center" style="width:600px;">
+  <tr><td style="padding:0px;">
+  <![endif]-->
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="max-width:600px;margin:0 auto;">
+    <tr>
+      <td>
+        <div class="email-container">
+          <div class="header" style="background:linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);text-align:center;padding:30px 20px;">
+            <div class="logo" style="color:#ffffff;">bzcart.store</div>
+            <div class="header-text" style="color:#ffffff;">Admin Verification Code</div>
+          </div>
+          <div class="body" style="background:#ffffff;padding:40px 30px;text-align:center;">
+            <p class="greeting" style="color:#555555;margin-bottom:20px;">Hello Admin! Welcome to the BZ Cart management system.</p>
+            <p style="color:#333333;margin-bottom:20px;">Use the following OTP to complete your admin verification process:</p>
+            <div class="otp" style="color:#ffa500;background:#f9f9f9;display:inline-block;">${otp}</div>
+            <p class="note" style="color:#777777;">This OTP is valid for <span class="highlight" style="color:#ffa500 !important;">10 minutes</span>. Do not share it with anyone for security reasons.</p>
+          </div>
+          <div class="footer" style="background:#f8f8f8;padding:20px;text-align:center;border-top:1px solid #e0e0e0;">
+            <p style="color:#999999;margin:5px 0;">If you didn't request this, please ignore this email or contact our support team.</p>
+            <p style="color:#999999;margin:5px 0;">&copy; 2023 BZ Cart. All rights reserved.</p>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+  <!--[if mso]>
+  </td></tr>
+  </table>
+  <![endif]-->
 </body>
 </html>`,
   };

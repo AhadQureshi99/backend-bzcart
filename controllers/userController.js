@@ -41,7 +41,9 @@ const sendOTP = (email, otp) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="./images/IMG_3765.PNG" type="image/png" />
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <link rel="icon" href="https://bzcart.store/favicon.png" type="image/png" />
   <title>BZ Cart - OTP Verification</title>
   <style>
     body {
@@ -187,8 +189,10 @@ const sendDiscountCode = (email, code) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="./images/IMG_3765.PNG" type="image/png" />
-  <title>Discount Code</title>
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <link rel="icon" href="https://bzcart.store/favicon.png" type="image/png" />
+  <title>BZ Cart - Discount Code</title>
   <style>
     body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
