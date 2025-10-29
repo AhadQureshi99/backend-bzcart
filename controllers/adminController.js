@@ -231,8 +231,8 @@ const sendOTP = (email, otp, id) => {
     {
       filename: "favicon.png",
       path: FAVICON_PATH,
-      cid: "favicon"
-    }
+      cid: "favicon",
+    },
   ];
 
   transporter.sendMail(mailOptions, (error, info) => {

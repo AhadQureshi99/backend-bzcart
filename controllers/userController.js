@@ -158,8 +158,8 @@ const sendOTP = (email, otp) => {
       {
         filename: "favicon.png",
         path: FAVICON_PATH,
-        cid: "favicon"
-      }
+        cid: "favicon",
+      },
     ],
   };
 
@@ -267,8 +267,8 @@ const sendDiscountCode = (email, code) => {
       {
         filename: "favicon.png",
         path: FAVICON_PATH,
-        cid: "favicon"
-      }
+        cid: "favicon",
+      },
     ],
   };
 

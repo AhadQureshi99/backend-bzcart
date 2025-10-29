@@ -186,8 +186,8 @@ const sendCampaign = handler(async (req, res) => {
       {
         filename: "favicon.png",
         path: FAVICON_PATH,
-        cid: "favicon"
-      }
+        cid: "favicon",
+      },
     ],
   };
 
