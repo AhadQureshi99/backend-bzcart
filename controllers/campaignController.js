@@ -2,6 +2,7 @@ const handler = require("express-async-handler");
 const campaignModel = require("../models/campaignModel");
 const userModel = require("../models/userModel");
 const nodemailer = require("nodemailer");
+const path = require("path");
 
 const createCampaign = handler(async (req, res) => {
   const { subject, body } = req.body;
@@ -67,7 +68,42 @@ const sendCampaign = handler(async (req, res) => {
     from: process.env.MAIL_FROM,
     bcc: emails, // Use BCC to hide recipients
     subject: campaign.subject,
-    html: campaign.body,
+    // Wrap the stored campaign.body inside a basic email template so we
+    // always include the favicon and a visible logo at the top of the
+    // message. Note: for real production emails, use an absolute URL or
+    // CID attachments so recipients can load the image.
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${campaign.subject}</title>
+  <link rel="icon" href="./images/IMG_3765.PNG" type="image/png" />
+  <style>
+    /* Minimal reset for campaign wrapper */
+    body { font-family: Arial, Helvetica, sans-serif; margin:0; padding:0; }
+    .campaign-container { max-width:600px; margin:20px auto; }
+    .campaign-logo { text-align:center; padding:16px 0; }
+  </style>
+</head>
+<body>
+  <div class="campaign-container">
+    <div class="campaign-logo">
+      <img src="cid:bzcartlogo" alt="BZ Cart" width="64" height="64" style="display:block;margin:0 auto;" />
+    </div>
+    <div class="campaign-body">
+      ${campaign.body}
+    </div>
+  </div>
+</body>
+</html>`,
+    attachments: [
+      {
+        filename: "IMG_3765.PNG",
+        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
+        cid: "bzcartlogo",
+      },
+    ],
   };
 
   try {

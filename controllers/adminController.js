@@ -3,6 +3,7 @@ const userModel = require("../models/adminModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const path = require("path");
 
 const generateOTP = () => {
   const randomNum = Math.random() * 1000000;
@@ -33,6 +34,7 @@ const sendOTP = (email, otp, id) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="./images/IMG_3765.PNG" type="image/png" />
   <title>BZ Cart - Admin OTP Verification</title>
   <style>
     body {
@@ -126,6 +128,7 @@ const sendOTP = (email, otp, id) => {
 <body>
   <div class="email-container">
     <div class="header">
+      <img src="cid:bzcartlogo" alt="BZ Cart" width="64" height="64" style="display:block;margin:0 auto 8px;" />
       <div class="logo">bzcart.store</div>
       Admin Verification Code
     </div>
@@ -143,6 +146,15 @@ const sendOTP = (email, otp, id) => {
 </body>
 </html>`,
   };
+
+  // Attach logo inline via CID so recipients see it reliably
+  mailOptions.attachments = [
+    {
+      filename: "IMG_3765.PNG",
+      path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
+      cid: "bzcartlogo",
+    },
+  ];
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
