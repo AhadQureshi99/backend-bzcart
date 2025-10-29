@@ -7,6 +7,8 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const path = require("path");
+// Force the sender address to the required value per project policy.
+const FORCE_MAIL_FROM = "info@bzcart.store";
 
 const generateOTP = () => {
   return crypto.randomInt(100000, 999999); // Secure OTP generation
@@ -31,7 +33,7 @@ const sendOTP = (email, otp) => {
   });
 
   const mailOptions = {
-    from: process.env.MAIL_FROM,
+    from: FORCE_MAIL_FROM,
     to: email,
     subject: "Your BZ Cart Verification Code",
     html: `<!DOCTYPE html>
@@ -184,7 +186,7 @@ const sendDiscountCode = (email, code) => {
   });
 
   const mailOptions = {
-    from: process.env.MAIL_FROM,
+    from: FORCE_MAIL_FROM,
     to: email,
     subject: "Your Exclusive 10% Discount Code",
     html: `<!DOCTYPE html>

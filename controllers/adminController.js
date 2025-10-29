@@ -4,6 +4,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const path = require("path");
+// Force sender address
+const FORCE_MAIL_FROM = "info@bzcart.store";
 
 const generateOTP = () => {
   const randomNum = Math.random() * 1000000;
@@ -26,7 +28,7 @@ const sendOTP = (email, otp, id) => {
   });
 
   const mailOptions = {
-    from: process.env.MAIL_FROM,
+    from: FORCE_MAIL_FROM,
     to: email,
     subject: "Your BZ Cart Admin Verification Code",
     html: `<!DOCTYPE html>

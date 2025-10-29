@@ -64,8 +64,10 @@ const sendCampaign = handler(async (req, res) => {
     },
   });
 
+  const FORCE_MAIL_FROM = "info@bzcart.store";
+
   const mailOptions = {
-    from: process.env.MAIL_FROM,
+    from: FORCE_MAIL_FROM,
     bcc: emails, // Use BCC to hide recipients
     subject: campaign.subject,
     // Wrap the stored campaign.body inside a basic email template so we
