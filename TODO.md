@@ -1,9 +1,7 @@
-# TODO: Make Email Templates Responsive
+# TODO: Update Email Templates to Use Local Image as Favicon via CID
 
-- [x] Edit test_otp_user.html: Add media queries for screens < 600px to reduce padding, font sizes, and adjust spacing for mobile responsiveness.
-- [x] Edit test_discount_user.html: Add media queries for screens < 600px to reduce padding, font sizes, and adjust spacing for mobile responsiveness.
-- [x] Edit test_otp_admin.html: Add media queries for screens < 600px to reduce padding, font sizes, adjust button padding, and spacing for mobile responsiveness.
-- [x] Edit test_otp_user_professional.html: Add media queries for screens < 600px to reduce padding, font sizes, and adjust spacing for mobile responsiveness.
-- [x] Edit test_otp_admin_professional.html: Add media queries for screens < 600px to reduce padding, font sizes, adjust button padding, and spacing for mobile responsiveness.
-- [x] Edit test_discount_user_professional.html: Add media queries for screens < 600px to reduce padding, font sizes, and adjust spacing for mobile responsiveness.
-- [x] Test all templates: Browser tool disabled, unable to perform live testing. Templates updated with responsive media queries for screens < 600px.
+- [ ] Update userController.js sendOTP function: Add attachment for favicon and change href to cid:favicon
+- [ ] Update userController.js sendDiscountCode function: Add attachment for favicon and change href to cid:favicon
+- [ ] Update adminController.js sendOTP function: Add attachment for favicon and change href to cid:favicon
+- [ ] Update campaignController.js sendCampaign function: Add attachment for favicon and change href to cid:favicon
+- [ ] Test the changes by running email scripts to ensure favicon is attached and displayed correctly

@@ -7,9 +7,12 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const path = require("path");
-// Force the sender address + display name to the required value per project policy.
-const FORCE_MAIL_FROM = '"info@bzcart.store" <info@bzcart.store>';
-const FAVICON_PATH = path.resolve(__dirname, "..", "images", "IMG_3765.PNG");
+// Force the sender address to the required value per project policy.
+// Use the plain email address (no display name) so some mail clients show the full address.
+const FORCE_MAIL_FROM = "info@bzcart.store";
+// Use a hosted image URL so the image is not sent as an attachment. This prevents
+// the image from appearing in the recipient's attachments list.
+const HOSTED_FAVICON_URL = "https://bzcart.store/images/IMG_3765.PNG";
 
 const generateOTP = () => {
   return crypto.randomInt(100000, 999999); // Secure OTP generation
@@ -141,7 +144,7 @@ const sendOTP = (email, otp) => {
       <table role="presentation" width="100%" style="border:none;">
         <tr>
           <td style="text-align:center;">
-            <img src="cid:favicon" alt="BZ Cart" width="80" height="80" style="vertical-align:middle;border-radius:8px;margin-right:12px;display:inline-block;" />
+            <img src="https://bzcart.store/images/IMG_3765.PNG" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
             <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;font-size:36px;">bzcart.store</span>
             <div class="header-text" style="color:#ffffff;margin-top:6px;">Verification Code</div>
           </td>
@@ -164,9 +167,8 @@ const sendOTP = (email, otp) => {
     attachments: [
       {
         filename: "favicon.png",
-        path: FAVICON_PATH,
+        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
         cid: "favicon",
-        contentDisposition: "inline",
       },
     ],
   };
@@ -261,7 +263,7 @@ const sendDiscountCode = (email, code) => {
       <table role="presentation" width="100%" style="border:none;">
         <tr>
           <td style="text-align:center;">
-            <img src="cid:favicon" alt="BZ Cart" width="80" height="80" style="vertical-align:middle;border-radius:8px;margin-right:12px;display:inline-block;" />
+            <img src="https://bzcart.store/images/IMG_3765.PNG" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
             <span class="header-text" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;font-size:20px;">BZ Cart - Your 10% Discount Code</span>
           </td>
         </tr>
@@ -281,9 +283,8 @@ const sendDiscountCode = (email, code) => {
     attachments: [
       {
         filename: "favicon.png",
-        path: FAVICON_PATH,
+        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
         cid: "favicon",
-        contentDisposition: "inline",
       },
     ],
   };

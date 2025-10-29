@@ -64,8 +64,8 @@ const sendCampaign = handler(async (req, res) => {
     },
   });
 
-  const FORCE_MAIL_FROM = '"info@bzcart.store" <info@bzcart.store>';
-  const FAVICON_PATH = path.resolve(__dirname, "..", "images", "IMG_3765.PNG");
+  const FORCE_MAIL_FROM = "info@bzcart.store";
+  const HOSTED_FAVICON_URL = "https://bzcart.store/images/IMG_3765.PNG";
 
   const mailOptions = {
     from: FORCE_MAIL_FROM,
@@ -83,7 +83,7 @@ const sendCampaign = handler(async (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <link rel="icon" href="cid:favicon" type="image/png" />
+  <link rel="icon" href="https://bzcart.store/images/IMG_3765.PNG" type="image/png" />
   <title>${campaign.subject}</title>
   <!--[if mso]>
   <noscript>
@@ -173,7 +173,7 @@ const sendCampaign = handler(async (req, res) => {
         <table role="presentation" width="100%" style="border:none;">
           <tr>
             <td style="text-align:center;">
-              <img src="cid:favicon" alt="BZ Cart" width="80" height="80" style="vertical-align:middle;border-radius:8px;margin-right:12px;display:inline-block;" />
+              <img src="https://bzcart.store/images/IMG_3765.PNG" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
               <h1 style="margin:0;display:inline-block;vertical-align:middle;font-size:24px;color:#ffffff;">BZ Cart</h1>
             </td>
           </tr>
@@ -189,14 +189,7 @@ const sendCampaign = handler(async (req, res) => {
   <![endif]-->
 </body>
 </html>`,
-    attachments: [
-      {
-        filename: "favicon.png",
-        path: FAVICON_PATH,
-        cid: "favicon",
-        contentDisposition: "inline",
-      },
-    ],
+    // No attachments: image referenced by hosted URL.
   };
 
   try {
