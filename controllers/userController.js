@@ -36,7 +36,7 @@ const sendOTP = (email, otp) => {
     from: FORCE_MAIL_FROM,
     to: email,
     subject: "Your BZ Cart Verification Code",
-  html: `<!DOCTYPE html>
+    html: `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">

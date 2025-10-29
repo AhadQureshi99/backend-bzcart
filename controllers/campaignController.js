@@ -64,7 +64,7 @@ const sendCampaign = handler(async (req, res) => {
     },
   });
 
-  const FORCE_MAIL_FROM = '\"BZ Cart\" <info@bzcart.store>';
+  const FORCE_MAIL_FROM = '"BZ Cart" <info@bzcart.store>';
 
   const mailOptions = {
     from: FORCE_MAIL_FROM,
