@@ -51,24 +51,37 @@ const sendCampaign = handler(async (req, res) => {
   }
 
   const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false, // true for 465, false for other ports
+    host: process.env.MAIL_HOST,
+    port: parseInt(process.env.MAIL_PORT),
+    secure: true, // true for 465 port
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS,
     },
+    tls: {
+      rejectUnauthorized: false, // Required for some GoDaddy configurations
+    },
   });
 
   const mailOptions = {
-    from: "info@bzcart",
+    from: process.env.MAIL_FROM,
     bcc: emails, // Use BCC to hide recipients
     subject: campaign.subject,
     html: campaign.body,
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    console.log("Attempting to send email campaign...");
+    console.log("Mail options:", {
+      ...mailOptions,
+      to: "HIDDEN", // Don't log recipient emails
+      bcc: "HIDDEN", // Don't log recipient emails
+      recipientCount: emails.length,
+    });
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent successfully:", info.messageId);
+
     campaign.sentAt = new Date();
     campaign.recipientCount = emails.length;
     await campaign.save();
@@ -77,9 +90,15 @@ const sendCampaign = handler(async (req, res) => {
       .status(200)
       .json({ message: `Campaign sent to ${emails.length} users` });
   } catch (error) {
-    console.error("Email send error:", error);
+    console.error("Email send error details:", {
+      code: error.code,
+      command: error.command,
+      response: error.response,
+      responseCode: error.responseCode,
+      stack: error.stack,
+    });
     res.status(500);
-    throw new Error("Failed to send campaign emails");
+    throw new Error(`Failed to send campaign emails: ${error.message}`);
   }
 });
 

@@ -17,15 +17,20 @@ const generateDiscountCode = () => {
 
 const sendOTP = (email, otp) => {
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: process.env.MAIL_HOST,
+    port: parseInt(process.env.MAIL_PORT),
+    secure: true,
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 
   const mailOptions = {
-    from: "info@bzcart",
+    from: process.env.MAIL_FROM,
     to: email,
     subject: "Your BZ Cart Verification Code",
     html: `<!DOCTYPE html>
@@ -156,15 +161,20 @@ const sendOTP = (email, otp) => {
 
 const sendDiscountCode = (email, code) => {
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: process.env.MAIL_HOST,
+    port: parseInt(process.env.MAIL_PORT),
+    secure: true,
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 
   const mailOptions = {
-    from: "info@bzcart",
+    from: process.env.MAIL_FROM,
     to: email,
     subject: "Your Exclusive 10% Discount Code",
     html: `<!DOCTYPE html>
