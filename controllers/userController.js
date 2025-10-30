@@ -47,7 +47,7 @@ const sendOTP = (email, otp) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <link rel="icon" href="cid:favicon" type="image/png" />
+  <link rel="icon" href="${HOSTED_FAVICON_URL}" type="image/png" />
   <title>BZ Cart - OTP Verification</title>
   <style>
     body {
@@ -144,7 +144,7 @@ const sendOTP = (email, otp) => {
       <table role="presentation" width="100%" style="border:none;">
         <tr>
           <td style="text-align:center;">
-            <img src="cid:logo" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
+            <img src="${HOSTED_FAVICON_URL}" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
             <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;font-size:36px;">bzcart.store</span>
             <div class="header-text" style="color:#ffffff;margin-top:6px;">Verification Code</div>
           </td>
@@ -164,18 +164,7 @@ const sendOTP = (email, otp) => {
   </div>
 </body>
 </html>`,
-    attachments: [
-      {
-        filename: "favicon.png",
-        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
-        cid: "favicon",
-      },
-      {
-        filename: "logo.png",
-        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
-        cid: "logo",
-      },
-    ],
+    attachments: [],
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
@@ -213,7 +202,7 @@ const sendDiscountCode = (email, code) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <link rel="icon" href="cid:favicon" type="image/png" />
+  <link rel="icon" href="${HOSTED_FAVICON_URL}" type="image/png" />
   <title>BZ Cart - Discount Code</title>
   <style>
     body {
@@ -268,7 +257,7 @@ const sendDiscountCode = (email, code) => {
       <table role="presentation" width="100%" style="border:none;">
         <tr>
           <td style="text-align:center;">
-            <img src="cid:logo" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
+            <img src="${HOSTED_FAVICON_URL}" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
             <span class="header-text" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;font-size:20px;">BZ Cart - Your 10% Discount Code</span>
           </td>
         </tr>
@@ -285,18 +274,7 @@ const sendDiscountCode = (email, code) => {
   </div>
 </body>
 </html>`,
-    attachments: [
-      {
-        filename: "favicon.png",
-        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
-        cid: "favicon",
-      },
-      {
-        filename: "logo.png",
-        path: path.resolve(__dirname, "..", "images", "IMG_3765.PNG"),
-        cid: "logo",
-      },
-    ],
+    attachments: [],
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
