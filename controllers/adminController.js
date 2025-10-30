@@ -7,7 +7,7 @@ const path = require("path");
 // Force sender address to the plain email (no display name) so mail clients may show the full address.
 const FORCE_MAIL_FROM = "info@bzcart.store";
 // Use hosted favicon URL to avoid sending the image as an attachment.
-const HOSTED_FAVICON_URL = "https://bzcart.store/images/IMG_3765.PNG";
+const HOSTED_FAVICON_URL = "https://bzcart.store/logg.png";
 
 const generateOTP = () => {
   const randomNum = Math.random() * 1000000;
@@ -41,7 +41,7 @@ const sendOTP = (email, otp, id) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <link rel="icon" href="https://bzcart.store/images/IMG_3765.PNG" type="image/png" />
+  <link rel="icon" href="${HOSTED_FAVICON_URL}" type="image/png" />
   <title>BZ Cart - Admin OTP Verification</title>
   <!--[if mso]>
   <noscript>
@@ -206,7 +206,7 @@ const sendOTP = (email, otp, id) => {
             <table role="presentation" width="100%" style="border:none;">
               <tr>
                 <td style="text-align:center;">
-                  <img src="https://bzcart.store/images/IMG_3765.PNG" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
+                  <img src="${HOSTED_FAVICON_URL}" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
                   <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;font-size:36px;">bzcart.store</span>
                   <div class="header-text" style="color:#ffffff;margin-top:6px;">Admin Verification Code</div>
                 </td>

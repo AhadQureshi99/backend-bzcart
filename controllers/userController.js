@@ -12,7 +12,7 @@ const path = require("path");
 const FORCE_MAIL_FROM = "info@bzcart.store";
 // Use a hosted image URL so the image is not sent as an attachment. This prevents
 // the image from appearing in the recipient's attachments list.
-const HOSTED_FAVICON_URL = "https://bzcart.store/images/IMG_3765.PNG";
+const HOSTED_FAVICON_URL = "https://bzcart.store/logg.png";
 
 const generateOTP = () => {
   return crypto.randomInt(100000, 999999); // Secure OTP generation
