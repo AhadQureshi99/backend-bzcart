@@ -29,7 +29,6 @@ app.use(
       "https://www.dashboard.bzcart.store",
       "http://dashboards.bzcart.store",
       "https://api.bzcart.store", // ✅ yeh add karo
-      
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
@@ -82,6 +81,7 @@ app.use("/api/categories", categoryRouter);
 app.use("/api/brands", brandRouter);
 app.use("/api/reel", reelRouter);
 app.use("/api", dealRoutes);
+app.use("/api/campaigns", require("./routes/campaignRoutes"));
 
 // Apply multer error handling after routes
 app.use(handleMulterError);

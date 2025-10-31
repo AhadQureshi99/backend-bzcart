@@ -6,6 +6,13 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
+const path = require("path");
+// Force the sender address to the required value per project policy.
+// Use the plain email address (no display name) so some mail clients show the full address.
+const FORCE_MAIL_FROM = "info@bzcart.store";
+// Use a hosted image URL so the image is not sent as an attachment. This prevents
+// the image from appearing in the recipient's attachments list.
+const HOSTED_FAVICON_URL = "https://bzcart.store/logg.png";
 
 const generateOTP = () => {
   return crypto.randomInt(100000, 999999); // Secure OTP generation
@@ -17,86 +24,147 @@ const generateDiscountCode = () => {
 
 const sendOTP = (email, otp) => {
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: process.env.MAIL_HOST,
+    port: parseInt(process.env.MAIL_PORT),
+    secure: true,
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 
   const mailOptions = {
-    from: process.env.MAIL_USER,
+    from: "bzcart <info@bzcart.store>",
     to: email,
-    subject: "OTP Verification",
+    subject: "Your BZ Cart Verification Code",
     html: `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OTP Email Card</title>
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <link rel="icon" href="${HOSTED_FAVICON_URL}" type="image/png" />
+  <title>BZ Cart - OTP Verification</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
       margin: 0;
       padding: 0;
-      background-color: #f4f4f9;
+      background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);
+      min-height: 100vh;
     }
     .email-container {
       max-width: 600px;
-      margin: 20px auto;
+      margin: 40px auto;
       background: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
       overflow: hidden;
+      border: 1px solid #e0e0e0;
     }
     .header {
-      background: #007bff;
+      background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);
       color: #ffffff;
       text-align: center;
-      padding: 20px;
-      font-size: 24px;
+      padding: 30px 20px;
+      font-size: 28px;
+      font-weight: bold;
+      position: relative;
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 2px;
+    }
+    .logo {
+      font-size: 36px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .body {
-      padding: 20px;
+      padding: 40px 30px;
       text-align: center;
+      color: #333333;
+    }
+    .greeting {
+      font-size: 18px;
+      margin-bottom: 20px;
+      color: #555555;
     }
     .otp {
-      font-size: 32px;
+      font-size: 48px;
       font-weight: bold;
-      color: #333333;
-      margin: 20px 0;
-      letter-spacing: 4px;
+      color: #ffa500;
+      margin: 30px 0;
+      letter-spacing: 8px;
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 12px;
+      border: 2px solid #ffa500;
+      display: inline-block;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     .note {
-      color: #555555;
+      color: #777777;
       font-size: 14px;
-      margin-top: 10px;
+      margin-top: 20px;
+      line-height: 1.5;
     }
     .footer {
-      background: #f4f4f9;
-      padding: 10px;
+      background: #f8f8f8;
+      padding: 20px;
       text-align: center;
       font-size: 12px;
-      color: #888888;
+      color: #999999;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+    .highlight {
+      color: #ffa500;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
   <div class="email-container">
     <div class="header">
-      Verification Code
+      <table role="presentation" width="100%" style="border:none;">
+        <tr>
+          <td style="text-align:center;">
+            <img src="${HOSTED_FAVICON_URL}" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
+            <span class="logo" style="display:inline-block;vertical-align:middle;color:#ffffff;font-size:36px;">bzcart.store</span>
+            <div class="header-text" style="color:#ffffff;margin-top:6px;">Verification Code</div>
+          </td>
+        </tr>
+      </table>
     </div>
     <div class="body">
+      <p class="greeting">Hello! Welcome to BZ Cart, your ultimate e-commerce destination.</p>
       <p>Use the following OTP to complete your registration process:</p>
       <div class="otp">${otp}</div>
-      <p class="note">This OTP is valid for 10 minutes. Do not share it with anyone.</p>
+      <p class="note">This OTP is valid for <span class="highlight">10 minutes</span>. Do not share it with anyone for security reasons.</p>
     </div>
     <div class="footer">
-      If you didn’t request this, please ignore this email or contact support.
+      <p>If you didn’t request this, please ignore this email or contact our support team.</p>
+      <p>&copy; 2023 BZ Cart. All rights reserved.</p>
     </div>
   </div>
 </body>
 </html>`,
+    attachments: [],
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
@@ -111,15 +179,20 @@ const sendOTP = (email, otp) => {
 
 const sendDiscountCode = (email, code) => {
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: process.env.MAIL_HOST,
+    port: parseInt(process.env.MAIL_PORT),
+    secure: true,
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 
   const mailOptions = {
-    from: process.env.MAIL_USER,
+    from: "bzcart <info@bzcart.store>",
     to: email,
     subject: "Your Exclusive 10% Discount Code",
     html: `<!DOCTYPE html>
@@ -127,13 +200,16 @@ const sendDiscountCode = (email, code) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Discount Code</title>
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <link rel="icon" href="${HOSTED_FAVICON_URL}" type="image/png" />
+  <title>BZ Cart - Discount Code</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
       margin: 0;
       padding: 0;
-      background-color: #f4f4f9;
+      background-color: #ffa500;
     }
     .email-container {
       max-width: 600px;
@@ -144,7 +220,7 @@ const sendDiscountCode = (email, code) => {
       overflow: hidden;
     }
     .header {
-      background: #007bff;
+      background: #ffa500;
       color: #ffffff;
       text-align: center;
       padding: 20px;
@@ -167,18 +243,25 @@ const sendDiscountCode = (email, code) => {
       margin-top: 10px;
     }
     .footer {
-      background: #f4f4f9;
+      background: #ffa500;
       padding: 10px;
       text-align: center;
       font-size: 12px;
-      color: #888888;
+      color: #ffffff;
     }
   </style>
 </head>
 <body>
   <div class="email-container">
     <div class="header">
-      Your 10% Discount Code
+      <table role="presentation" width="100%" style="border:none;">
+        <tr>
+          <td style="text-align:center;">
+            <img src="${HOSTED_FAVICON_URL}" alt="BZ Cart" width="110" height="110" style="vertical-align:middle;border-radius:12px;margin-right:12px;display:inline-block;" />
+            <span class="header-text" style="display:inline-block;vertical-align:middle;color:#ffffff;font-weight:bold;font-size:20px;">BZ Cart - Your 10% Discount Code</span>
+          </td>
+        </tr>
+      </table>
     </div>
     <div class="body">
       <p>Thank you for subscribing! Use the following code at checkout to get 10% off your first order:</p>
@@ -191,6 +274,7 @@ const sendDiscountCode = (email, code) => {
   </div>
 </body>
 </html>`,
+    attachments: [],
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
@@ -220,7 +304,10 @@ const getCurrentUser = handler(async (req, res) => {
       res.status(404);
       throw new Error("User not found");
     }
-    console.log("userController - getCurrentUser: Found user:", { id: user._id, email: user.email });
+    console.log("userController - getCurrentUser: Found user:", {
+      id: user._id,
+      email: user.email,
+    });
     res.status(200).json({
       _id: user._id,
       username: user.username,
@@ -264,7 +351,10 @@ const registerUser = handler(async (req, res) => {
 
   sendOTP(email, myOTP);
 
-  console.log("userController - registerUser: Success, tempUser:", tempUser._id);
+  console.log(
+    "userController - registerUser: Success, tempUser:",
+    tempUser._id
+  );
   res.status(201).send({
     _id: tempUser._id,
     username: tempUser.username,
@@ -277,7 +367,10 @@ const verifyOTP = handler(async (req, res) => {
   const user_id = req.user._id;
   const { otp } = req.body;
 
-  console.log("userController - verifyOTP: Verifying OTP for user_id:", user_id);
+  console.log(
+    "userController - verifyOTP: Verifying OTP for user_id:",
+    user_id
+  );
 
   if (!otp) {
     res.status(400);
@@ -386,7 +479,10 @@ const subscribeUser = handler(async (req, res) => {
 const validateDiscountCode = handler(async (req, res) => {
   const { email, code } = req.body;
 
-  console.log("userController - validateDiscountCode: Validating code for:", { email, code });
+  console.log("userController - validateDiscountCode: Validating code for:", {
+    email,
+    code,
+  });
 
   if (!email || !code) {
     res.status(400);
