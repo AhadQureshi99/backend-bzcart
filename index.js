@@ -1,5 +1,4 @@
 const express = require("express");
-const compression = require("compression");
 const errorHandler = require("./middlewares/errorMiddleware");
 const connectDB = require("./config/connectDB");
 const cors = require("cors");
@@ -13,25 +12,6 @@ const dealRoutes = require("./routes/dealRoutes"); // Add this line
 const multer = require("multer");
 
 const app = express();
-
-// Serve static files with cache headers
-app.use(
-  express.static("public", {
-    maxAge: "1y", // Cache for 1 year
-    setHeaders: (res, path) => {
-      if (path.endsWith(".js") || path.endsWith(".css")) {
-        res.setHeader("Cache-Control", "public, max-age=31536000"); // 1 year
-      } else if (
-        path.endsWith(".png") ||
-        path.endsWith(".jpg") ||
-        path.endsWith(".jpeg") ||
-        path.endsWith(".gif")
-      ) {
-        res.setHeader("Cache-Control", "public, max-age=31536000"); // 1 year for images
-      }
-    },
-  })
-);
 
 require("dotenv").config();
 require("colors");
@@ -49,6 +29,7 @@ app.use(
       "https://www.dashboard.bzcart.store",
       "http://dashboards.bzcart.store",
       "https://api.bzcart.store", // ✅ yeh add karo
+      
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
