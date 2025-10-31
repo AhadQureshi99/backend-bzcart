@@ -44,9 +44,7 @@ app.use(
       "http://localhost:5175",
       "https://bz-cart-d-ashboard.vercel.app",
       "https://bz-cart.vercel.app",
-      "https://www.bzcart.store",
       "https://bzcart.store",
-      "https://www.dashboard.bzcart.store",
       "http://dashboards.bzcart.store",
       "https://api.bzcart.store", // ✅ yeh add karo
     ],
