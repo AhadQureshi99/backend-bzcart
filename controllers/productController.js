@@ -565,11 +565,14 @@ const getProductsByCategory = handler(async (req, res) => {
     console.log("getProductsByCategory - Found products:", products.length);
     res.status(200).json(products);
   } catch (err) {
+    // Detailed logging for diagnostics
     console.error("getProductsByCategory - Error:", err);
-    // log stack for diagnostics but return a short message to client
     console.error(err.stack || err.message);
-    res.status(err.status || 500);
-    throw new Error(err.message || "Failed to fetch products");
+    // Return structured JSON to the client to aid frontend debugging
+    return res.status(500).json({
+      message: err.message || "Failed to fetch products",
+      error: String(err),
+    });
   }
 });
 
