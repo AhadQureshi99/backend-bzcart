@@ -540,7 +540,10 @@ const getProductsByCategory = handler(async (req, res) => {
   try {
     // Validate categoryId format early to avoid Mongoose cast errors
     if (!mongoose.Types.ObjectId.isValid(categoryId)) {
-      console.warn("getProductsByCategory - Invalid categoryId format:", categoryId);
+      console.warn(
+        "getProductsByCategory - Invalid categoryId format:",
+        categoryId
+      );
       res.status(400);
       throw new Error("Invalid category ID format");
     }
