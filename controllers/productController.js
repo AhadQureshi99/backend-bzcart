@@ -538,6 +538,12 @@ const getProductsByCategory = handler(async (req, res) => {
   console.log("getProductsByCategory - Category ID:", categoryId);
 
   try {
+    // Validate categoryId format early to avoid Mongoose cast errors
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      console.warn("getProductsByCategory - Invalid categoryId format:", categoryId);
+      res.status(400);
+      throw new Error("Invalid category ID format");
+    }
     const products = await productModel
       .find({
         $or: [{ category: categoryId }, { subcategories: categoryId }],
@@ -556,7 +562,9 @@ const getProductsByCategory = handler(async (req, res) => {
     console.log("getProductsByCategory - Found products:", products.length);
     res.status(200).json(products);
   } catch (err) {
-    console.error("getProductsByCategory - Error:", err.message);
+    console.error("getProductsByCategory - Error:", err);
+    // log stack for diagnostics but return a short message to client
+    console.error(err.stack || err.message);
     res.status(err.status || 500);
     throw new Error(err.message || "Failed to fetch products");
   }
