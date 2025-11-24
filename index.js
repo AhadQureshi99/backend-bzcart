@@ -30,6 +30,7 @@ app.use(
       "https://bzcart.store",
       "https://www.dashboard.bzcart.store",
       "http://dashboards.bzcart.store",
+      "https://dashboards.bzcart.store",
       "https://api.bzcart.store", // ✅ yeh add karo
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
