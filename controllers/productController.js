@@ -559,9 +559,8 @@ const getProductsByCategory = handler(async (req, res) => {
         "getProductsByCategory - No products found for category:",
         categoryId
       );
-      // Return an empty array instead of throwing an error so frontend can
-      // render an empty state without receiving a 500 from the server.
-      return res.status(200).json([]);
+      res.status(404);
+      throw new Error("No products found in this category or subcategory");
     }
     console.log("getProductsByCategory - Found products:", products.length);
     res.status(200).json(products);
