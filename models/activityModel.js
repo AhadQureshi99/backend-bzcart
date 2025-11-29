@@ -2,7 +2,11 @@ const mongoose = require("mongoose");
 
 const activitySchema = new mongoose.Schema(
   {
-    user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
+    user_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+    },
     guest_id: { type: String, required: false },
     session_id: { type: String, required: false },
     event_type: { type: String, required: true }, // click | scroll | add_to_cart | page_view | session_start | session_end | custom

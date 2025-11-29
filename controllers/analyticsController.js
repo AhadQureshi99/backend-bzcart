@@ -15,7 +15,8 @@ const logEvent = handler(async (req, res) => {
   }
 
   const doc = await Activity.create({
-    user_id: user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
+    user_id:
+      user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
     guest_id: payload.guest_id || null,
     session_id: payload.session_id || null,
     event_type: eventType,
@@ -54,18 +55,26 @@ const getSummary = handler(async (req, res) => {
   const pipeline = [
     {
       $facet: {
-        countsByType: [
-          { $sortByCount: "$event_type" },
-          { $limit: 50 },
-        ],
+        countsByType: [{ $sortByCount: "$event_type" }, { $limit: 50 }],
         uniqueUsers: [
           { $match: { user_id: { $ne: null } } },
           { $group: { _id: "$user_id" } },
           { $count: "uniqueUsers" },
         ],
         sessionDurations: [
-          { $match: { event_type: "session_end", duration_ms: { $exists: true } } },
-          { $group: { _id: null, avgDuration: { $avg: "$duration_ms" }, count: { $sum: 1 } } },
+          {
+            $match: {
+              event_type: "session_end",
+              duration_ms: { $exists: true },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              avgDuration: { $avg: "$duration_ms" },
+              count: { $sum: 1 },
+            },
+          },
         ],
       },
     },
