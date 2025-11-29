@@ -84,6 +84,7 @@ app.use("/api/categories", categoryRouter);
 app.use("/api/brands", brandRouter);
 app.use("/api/reel", reelRouter);
 app.use("/api", dealRoutes);
+app.use("/api/analytics", require("./routes/analyticsRoutes"));
 
 // Apply multer error handling after routes
 app.use(handleMulterError);
