@@ -1,6 +1,7 @@
 const handler = require("express-async-handler");
 const productModel = require("../models/productModel");
 const cartModel = require("../models/cartModel");
+const Activity = require("../models/activityModel");
 const reviewModel = require("../models/reviewModel");
 const Category = require("../models/categoryModel");
 const User = require("../models/userModel");
@@ -135,6 +136,27 @@ const addToCart = handler(async (req, res) => {
       cart.quantity = newQuantity;
       await cart.save();
       console.log("addToCart - Updated cart item:", cart._id);
+      // Log server-side analytics event for add_to_cart
+      try {
+        await Activity.create({
+          user_id:
+            user_id && mongoose.Types.ObjectId.isValid(user_id)
+              ? user_id
+              : null,
+          user_display: req.user?.username || req.user?.email || null,
+          guest_id: guestId || null,
+          event_type: "add_to_cart",
+          url: req.headers.referer || req.body.url || null,
+          data: {
+            product_id,
+            selected_size: selected_size || null,
+            selected_image,
+            quantity: 1,
+          },
+        });
+      } catch (e) {
+        console.warn("addToCart - analytics log failed:", e?.message || e);
+      }
     } else {
       cart = await cartModel.create({
         user_id: user_id || null,
@@ -145,6 +167,27 @@ const addToCart = handler(async (req, res) => {
         quantity: 1,
       });
       console.log("addToCart - Created new cart item:", cart._id);
+      // Log server-side analytics on creation as well
+      try {
+        await Activity.create({
+          user_id:
+            user_id && mongoose.Types.ObjectId.isValid(user_id)
+              ? user_id
+              : null,
+          user_display: req.user?.username || req.user?.email || null,
+          guest_id: guestId || null,
+          event_type: "add_to_cart",
+          url: req.headers.referer || req.body.url || null,
+          data: {
+            product_id,
+            selected_size: selected_size || null,
+            selected_image,
+            quantity: 1,
+          },
+        });
+      } catch (e) {
+        console.warn("addToCart - analytics log failed:", e?.message || e);
+      }
     }
 
     const updatedCarts = await cartModel

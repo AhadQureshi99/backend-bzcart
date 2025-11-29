@@ -4,6 +4,8 @@ const Product = require("../models/productModel");
 const discountCodeModel = require("../models/discountCodeModel");
 const asyncHandler = require("express-async-handler");
 const Cart = require("../models/cartModel");
+const mongoose = require("mongoose");
+const Activity = require("../models/activityModel");
 
 const createOrder = asyncHandler(async (req, res) => {
   console.log("createOrder - Request body:", req.body);
@@ -216,6 +218,27 @@ const createOrder = asyncHandler(async (req, res) => {
   await Cart.deleteMany(cartQuery);
 
   console.log("createOrder - Order created successfully:", order._id);
+  // Log server-side analytics event for order creation
+  try {
+    await Activity.create({
+      user_id:
+        userId && mongoose.Types.ObjectId.isValid(userId) ? userId : null,
+      user_display: req.user?.username || full_name || order_email || null,
+      guest_id: !userId ? guestId : null,
+      event_type: "order_placed",
+      url: req.headers.referer || null,
+      data: {
+        order_id: order._id,
+        products: products.map((p) => ({
+          product_id: p.product_id,
+          quantity: p.quantity,
+        })),
+        total_amount: final_total,
+      },
+    });
+  } catch (err) {
+    console.warn("createOrder - analytics log failed:", err?.message || err);
+  }
   res.status(201).json(order);
 });
 

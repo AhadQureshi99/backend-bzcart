@@ -18,6 +18,7 @@ const logEvent = handler(async (req, res) => {
     user_id:
       user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
     guest_id: payload.guest_id || null,
+    user_display: payload.user_display || null,
     session_id: payload.session_id || null,
     event_type: eventType,
     url: payload.url || payload.path || null,
