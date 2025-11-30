@@ -106,19 +106,31 @@ const logEvent = handler(async (req, res) => {
     /* ignore general failures in this enrichment step */
   }
 
-  const doc = await Activity.create({
-    user_id:
-      user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
-    guest_id: payload.guest_id || null,
-    user_display: payload.user_display || null,
-    session_id: payload.session_id || null,
-    event_type: eventType,
-    url: payload.url || payload.path || null,
-    element: payload.element || null,
-    data: payload.data || {},
-    duration_ms: payload.duration_ms || null,
-    meta: payload.meta || {},
-  });
+  let doc;
+  try {
+    doc = await Activity.create({
+      user_id:
+        user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
+      guest_id: payload.guest_id || null,
+      user_display: payload.user_display || null,
+      session_id: payload.session_id || null,
+      event_type: eventType,
+      url: payload.url || payload.path || null,
+      element: payload.element || null,
+      data: payload.data || {},
+      duration_ms: payload.duration_ms || null,
+      meta: payload.meta || {},
+    });
+  } catch (e) {
+    // Log the error details to aid debugging when ingestion fails
+    console.error(
+      "analyticsController.logEvent - Activity.create failed:",
+      e?.message || e
+    );
+    console.error("Payload:", JSON.stringify(payload).slice(0, 2000));
+    // rethrow so express-async-handler/error middleware will produce a 500
+    throw e;
+  }
 
   // Try to enrich geolocation synchronously with a short timeout so the
   // Activity returned to the API caller contains location when possible.

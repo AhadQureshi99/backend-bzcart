@@ -445,7 +445,14 @@ const removeFromCart = handler(async (req, res) => {
       throw new Error("Cart item not found");
     }
 
-    if (cart.quantity > 1) {
+    // honor explicit removeAll flag if provided — delete regardless of quantity
+    if (req.body.removeAll) {
+      await cartModel.deleteOne({ _id: cart._id });
+      console.log(
+        "removeFromCart - removeAll requested, deleted cart item:",
+        cart._id
+      );
+    } else if (cart.quantity > 1) {
       cart.quantity -= 1;
       await cart.save();
       console.log("removeFromCart - Decreased quantity:", cart._id);
@@ -481,9 +488,17 @@ const removeFromCart = handler(async (req, res) => {
     );
     res.status(200).json(updatedCarts);
   } catch (err) {
-    console.error("removeFromCart - Error:", err.message);
+    console.error("removeFromCart - Error:", err?.message || err);
+    console.error(
+      "removeFromCart - request body:",
+      JSON.stringify(req.body).slice(0, 2000)
+    );
+    console.error(
+      "removeFromCart - headers:",
+      JSON.stringify(req.headers).slice(0, 2000)
+    );
     res.status(500);
-    throw new Error("Failed to remove from cart");
+    throw err; // rethrow to include stack via error middleware
   }
 });
 
