@@ -68,8 +68,16 @@ const logEvent = handler(async (req, res) => {
               const prod = it.product_id || {};
               // choose selected image only if it legitimately belongs to the product
               let sel = it.selected_image || null;
-              if (sel && Array.isArray(prod.product_images) && !prod.product_images.includes(sel)) {
-                sel = Array.isArray(prod.product_images) && prod.product_images.length ? prod.product_images[0] : sel;
+              if (
+                sel &&
+                Array.isArray(prod.product_images) &&
+                !prod.product_images.includes(sel)
+              ) {
+                sel =
+                  Array.isArray(prod.product_images) &&
+                  prod.product_images.length
+                    ? prod.product_images[0]
+                    : sel;
               }
               return {
                 _id: it._id,
@@ -78,7 +86,10 @@ const logEvent = handler(async (req, res) => {
                 selected_image: sel || null,
                 selected_size: it.selected_size || null,
                 quantity: it.quantity || 0,
-                price: it.product_id?.product_discounted_price || it.product_id?.product_base_price || null,
+                price:
+                  it.product_id?.product_discounted_price ||
+                  it.product_id?.product_base_price ||
+                  null,
               };
             });
           }
