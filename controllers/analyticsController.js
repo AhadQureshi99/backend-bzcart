@@ -43,6 +43,45 @@ const logEvent = handler(async (req, res) => {
     // ignore UA parse errors
   }
 
+  // If this is a page view for a checkout/payment page, attach a server-side
+  // cart snapshot (best-effort) so the dashboard can inspect what the user had
+  // in their cart when they reached checkout / cashout.
+  try {
+    const urlLower = String(payload.url || payload.path || "").toLowerCase();
+    if (eventType === "page_view" && /cashout|checkout|payment/.test(urlLower)) {
+      try {
+        const Cart = require("../models/cartModel");
+        const cartQuery = user_id
+          ? { user_id }
+          : payload.guest_id
+          ? { guest_id: String(payload.guest_id) }
+          : null;
+        if (cartQuery) {
+          const cartItems = await Cart.find(cartQuery).populate("product_id");
+          if (cartItems && cartItems.length) {
+            // Build a minimal snapshot compatible with other server logs
+            payload.data = payload.data || {};
+            payload.data.cart_snapshot = cartItems.map((it) => ({
+              _id: it._id,
+              product_id: it.product_id?._id || it.product_id,
+              product_name: it.product_id?.product_name || null,
+              selected_image: it.selected_image || it.product_id?.product_images?.[0] || null,
+              selected_size: it.selected_size || null,
+              quantity: it.quantity || 0,
+              price:
+                it.product_id?.product_discounted_price || it.product_id?.product_base_price || null,
+            }));
+          }
+        }
+      } catch (e) {
+        // Best-effort only — do not fail event logging if cart lookup fails
+        console.warn("analyticsController: failed to attach cart snapshot", e?.message || e);
+      }
+    }
+  } catch (e) {
+    /* ignore general failures in this enrichment step */
+  }
+
   const doc = await Activity.create({
     user_id:
       user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
