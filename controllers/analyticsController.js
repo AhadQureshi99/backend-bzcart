@@ -72,17 +72,15 @@ const logEvent = handler(async (req, res) => {
                 sel = Array.isArray(prod.product_images) && prod.product_images.length ? prod.product_images[0] : sel;
               }
               return {
-              _id: it._id,
-              product_id: it.product_id?._id || it.product_id,
-              product_name: it.product_id?.product_name || null,
-              selected_image: sel || null,
-              selected_size: it.selected_size || null,
-              quantity: it.quantity || 0,
-              price:
-                it.product_id?.product_discounted_price ||
-                it.product_id?.product_base_price ||
-                null,
-            } );
+                _id: it._id,
+                product_id: it.product_id?._id || it.product_id,
+                product_name: it.product_id?.product_name || null,
+                selected_image: sel || null,
+                selected_size: it.selected_size || null,
+                quantity: it.quantity || 0,
+                price: it.product_id?.product_discounted_price || it.product_id?.product_base_price || null,
+              };
+            });
           }
         }
       } catch (e) {
@@ -111,17 +109,17 @@ const logEvent = handler(async (req, res) => {
     meta: payload.meta || {},
   });
 
-  res.status(201).json(doc);
-
-  // Socket-based realtime updates removed — analytics will be served via REST
-
-  // Non-blocking: enrich the doc with geo lookup based on IP when available (best-effort)
-  (async () => {
+  // Try to enrich geolocation synchronously with a short timeout so the
+  // Activity returned to the API caller contains location when possible.
+  if (ip) {
     try {
-      if (ip) {
-        // Using ipapi.co (no-key, rate limits); if unavailable this fails silently
-        const url = `https://ipapi.co/${ip}/json/`;
-        const r = await fetch(url, { timeout: 2000 });
+      const url = `https://ipapi.co/${ip}/json/`;
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 1000);
+      let updated = null;
+      try {
+        const r = await fetch(url, { signal: controller.signal });
+        clearTimeout(t);
         if (r && r.ok) {
           const info = await r.json();
           const loc = {
@@ -133,18 +131,22 @@ const logEvent = handler(async (req, res) => {
             longitude: info.longitude || info.lon || null,
             org: info.org || null,
           };
-          const updated = await Activity.findByIdAndUpdate(
+          updated = await Activity.findByIdAndUpdate(
             doc._id,
             { $set: { "meta.location": loc } },
             { new: true }
           );
-          // removed socket.io emission; REST endpoint serves updated events
         }
+      } catch (e) {
+        // ignored (timeout/network)
       }
+      return res.status(201).json(updated || doc);
     } catch (err) {
-      // ignore geolocation errors
+      return res.status(201).json(doc);
     }
-  })();
+  }
+
+  return res.status(201).json(doc);
 });
 
 // GET /api/analytics/monthly - simple last-30-days metrics (page_views, add_to_cart, order_placed)
@@ -238,47 +240,41 @@ const getEvents = handler(async (req, res) => {
     .limit(Number(limit))
     .skip(Number(skip));
 
-  // Try to enrich geolocation synchronously with a short timeout so the
-  // Activity returned to the client contains location when possible.
-  if (ip) {
-    try {
-      const url = `https://ipapi.co/${ip}/json/`;
-      const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), 1000);
-      let updated = null;
-      try {
-        const r = await fetch(url, { signal: controller.signal });
-        clearTimeout(t);
-        if (r && r.ok) {
-          const info = await r.json();
-          const loc = {
-            ip: ip,
-            city: info.city || null,
-            region: info.region || null,
-            country: info.country_name || info.country || null,
-            latitude: info.latitude || info.lat || null,
-            longitude: info.longitude || info.lon || null,
-            org: info.org || null,
-          };
-          updated = await Activity.findByIdAndUpdate(
-            doc._id,
-            { $set: { "meta.location": loc } },
-            { new: true }
-          );
-        }
-      } catch (e) {
-        // fetch/timeout error — fall through and return original doc
-      }
-      return res.status(201).json(updated || doc);
-    } catch (err) {
-      // fallback to returning the created doc
-      return res.status(201).json(doc);
-    }
-  }
+  return res.status(200).json(results);
+});
 
-  // No IP or enrichment failed quickly — return original doc
-  return res.status(201).json(doc);
-  // End: synchronous geo enrichment attempt
+// GET /api/analytics/summary
+const getSummary = handler(async (req, res) => {
+  // Simple aggregation: counts by event_type, unique users, average session duration
+  const pipeline = [
+    {
+      $facet: {
+        countsByType: [{ $sortByCount: "$event_type" }, { $limit: 50 }],
+        uniqueUsers: [
+          { $match: { user_id: { $ne: null } } },
+          { $group: { _id: "$user_id" } },
+          { $count: "uniqueUsers" },
+        ],
+        sessionDurations: [
+          {
+            $match: {
+              event_type: "session_end",
+              duration_ms: { $exists: true },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              avgDuration: { $avg: "$duration_ms" },
+              count: { $sum: 1 },
+            },
+          },
+        ],
+      },
+    },
+  ];
+
+  const agg = await Activity.aggregate(pipeline);
   const data = agg[0] || {};
 
   res.status(200).json({

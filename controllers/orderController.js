@@ -277,39 +277,41 @@ const createOrder = asyncHandler(async (req, res) => {
 
     // Enrich geolocation synchronously (short timeout) so Activity will
     // often include location immediately for dashboard reads.
-    try {
-      const ip = getClientIp(req);
-      if (ip) {
-        const url = `https://ipapi.co/${ip}/json/`;
-        const controller = new AbortController();
-        const tmr = setTimeout(() => controller.abort(), 1000);
-        try {
-          const r = await fetch(url, { signal: controller.signal });
-          clearTimeout(tmr);
-          if (r && r.ok) {
-            const info = await r.json();
-            const loc = {
-              ip,
-              city: info.city || null,
-              region: info.region || null,
-              country: info.country_name || info.country || null,
-              latitude: info.latitude || info.lat || null,
-              longitude: info.longitude || info.lon || null,
-              org: info.org || null,
-            };
-            await Activity.findByIdAndUpdate(
-              activityDoc._id,
-              { $set: { "meta.location": loc } },
-              { new: true }
-            );
+      // Try to enrich geolocation synchronously with a short timeout so the
+      // Activity record will contain a location quickly.
+      try {
+        const ip = getClientIp(req);
+        if (ip) {
+          const url = `https://ipapi.co/${ip}/json/`;
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 1000);
+          try {
+            const r = await fetch(url, { signal: controller.signal });
+            clearTimeout(timer);
+            if (r && r.ok) {
+              const info = await r.json();
+              const loc = {
+                ip,
+                city: info.city || null,
+                region: info.region || null,
+                country: info.country_name || info.country || null,
+                latitude: info.latitude || info.lat || null,
+                longitude: info.longitude || info.lon || null,
+                org: info.org || null,
+              };
+              await Activity.findByIdAndUpdate(
+                activityDoc._id,
+                { $set: { "meta.location": loc } },
+                { new: true }
+              );
+            }
+          } catch (e) {
+            // ignore network/timeout errors
           }
-        } catch (e) {
-          /* ignore fetch/timeout */
         }
+      } catch (e) {
+        // ignore
       }
-    } catch (e) {
-      /* ignore */
-    }
   } catch (err) {
     console.warn("createOrder - analytics log failed:", err?.message || err);
   }
