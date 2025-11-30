@@ -182,7 +182,7 @@ const addToCart = handler(async (req, res) => {
         finalSelectedImage = selected_image;
       }
 
-      await Activity.create({
+      const activityDoc = await Activity.create({
         user_id:
           user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
         user_display: req.user?.username || req.user?.email || null,
@@ -197,9 +197,65 @@ const addToCart = handler(async (req, res) => {
           selected_image: finalSelectedImage,
           quantity: 1,
           cart_item_count: totalItems,
+          // include product snapshot for historical accuracy
+          product_snapshot: {
+            product_name: productName,
+            product_images: Array.isArray(product.product_images)
+              ? product.product_images
+              : [],
+          },
         },
-        meta: { server_logged: true },
+        meta: {
+          server_logged: true,
+          ip:
+            req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
+            req.ip ||
+            null,
+        },
       });
+      // emit realtime analytics event
+      try {
+        const io = req.app && req.app.get && req.app.get("io");
+        if (io) io.emit("analytics:event", activityDoc);
+      } catch (err) {
+        // ignore
+      }
+      // async enrich geolocation for server-side logged events
+      (async () => {
+        try {
+          const ip =
+            req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
+            req.ip ||
+            null;
+          if (ip) {
+            const url = `https://ipapi.co/${ip}/json/`;
+            const r = await fetch(url);
+            if (r && r.ok) {
+              const info = await r.json();
+              const loc = {
+                ip,
+                city: info.city || null,
+                region: info.region || null,
+                country: info.country_name || info.country || null,
+                latitude: info.latitude || info.lat || null,
+                longitude: info.longitude || info.lon || null,
+                org: info.org || null,
+              };
+              const updated = await Activity.findByIdAndUpdate(
+                activityDoc._id,
+                { $set: { "meta.location": loc } },
+                { new: true }
+              );
+              try {
+                const io2 = req.app && req.app.get && req.app.get("io");
+                if (io2) io2.emit("analytics:event:update", updated);
+              } catch (e) {}
+            }
+          }
+        } catch (e) {
+          /* ignore */
+        }
+      })();
     } catch (e) {
       console.warn("addToCart - analytics log failed:", e?.message || e);
     }

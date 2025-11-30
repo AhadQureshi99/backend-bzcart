@@ -12,6 +12,24 @@ const dealRoutes = require("./routes/dealRoutes"); // Add this line
 const multer = require("multer");
 
 const app = express();
+const http = require("http");
+const server = http.createServer(app);
+const { Server } = require("socket.io");
+
+// create socket.io instance; later controllers will emit analytics events to connected dashboard clients
+const io = new Server(server, {
+  cors: {
+    origin: [
+      "http://localhost:5173",
+      "https://dashboardbzcart.vercel.app",
+      "https://dashboard.bzcart.store",
+      "https://bz-cart-d-ashboard.vercel.app",
+      "https://bzcart.store",
+    ],
+    methods: ["GET", "POST"],
+  },
+});
+app.set("io", io);
 
 require("dotenv").config();
 require("colors");
@@ -93,4 +111,6 @@ app.use(handleMulterError);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3003;
-app.listen(PORT, () => console.log(`Server started on port: ${PORT}`.yellow));
+server.listen(PORT, () =>
+  console.log(`Server started on port: ${PORT}`.yellow)
+);

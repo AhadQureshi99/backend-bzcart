@@ -220,7 +220,7 @@ const createOrder = asyncHandler(async (req, res) => {
   console.log("createOrder - Order created successfully:", order._id);
   // Log server-side analytics event for order creation
   try {
-    await Activity.create({
+    const activityDoc = await Activity.create({
       user_id:
         userId && mongoose.Types.ObjectId.isValid(userId) ? userId : null,
       user_display: req.user?.username || full_name || order_email || null,
@@ -252,7 +252,54 @@ const createOrder = asyncHandler(async (req, res) => {
         }),
         total_amount: final_total,
       },
+      meta: {
+        server_logged: true,
+        ip:
+          req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
+          req.ip ||
+          null,
+      },
     });
+    // Emit realtime event
+    try {
+      const io = req.app && req.app.get && req.app.get("io");
+      if (io) io.emit("analytics:event", activityDoc);
+    } catch (err) {}
+
+    // async geo enrichment
+    (async () => {
+      try {
+        const ip =
+          req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
+          req.ip ||
+          null;
+        if (ip) {
+          const url = `https://ipapi.co/${ip}/json/`;
+          const r = await fetch(url);
+          if (r && r.ok) {
+            const info = await r.json();
+            const loc = {
+              ip,
+              city: info.city || null,
+              region: info.region || null,
+              country: info.country_name || info.country || null,
+              latitude: info.latitude || info.lat || null,
+              longitude: info.longitude || info.lon || null,
+              org: info.org || null,
+            };
+            const updated = await Activity.findByIdAndUpdate(
+              activityDoc._id,
+              { $set: { "meta.location": loc } },
+              { new: true }
+            );
+            try {
+              const io2 = req.app && req.app.get && req.app.get("io");
+              if (io2) io2.emit("analytics:event:update", updated);
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+    })();
   } catch (err) {
     console.warn("createOrder - analytics log failed:", err?.message || err);
   }

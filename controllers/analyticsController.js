@@ -14,6 +14,12 @@ const logEvent = handler(async (req, res) => {
     throw new Error("event_type is required");
   }
 
+  // attach request IP to meta when available
+  const ip =
+    req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() || req.ip || null;
+  payload.meta = payload.meta || {};
+  if (ip) payload.meta.ip = ip;
+
   const doc = await Activity.create({
     user_id:
       user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
@@ -29,6 +35,124 @@ const logEvent = handler(async (req, res) => {
   });
 
   res.status(201).json(doc);
+
+  // Emit realtime socket event (if dashboards connected)
+  try {
+    const io = req.app && req.app.get && req.app.get("io");
+    if (io) io.emit("analytics:event", doc);
+  } catch (e) {
+    // swallow
+    console.warn("analyticsController: socket emit failed", e?.message || e);
+  }
+
+  // Non-blocking: enrich the doc with geo lookup based on IP when available (best-effort)
+  (async () => {
+    try {
+      if (ip) {
+        // Using ipapi.co (no-key, rate limits); if unavailable this fails silently
+        const url = `https://ipapi.co/${ip}/json/`;
+        const r = await fetch(url, { timeout: 2000 });
+        if (r && r.ok) {
+          const info = await r.json();
+          const loc = {
+            ip: ip,
+            city: info.city || null,
+            region: info.region || null,
+            country: info.country_name || info.country || null,
+            latitude: info.latitude || info.lat || null,
+            longitude: info.longitude || info.lon || null,
+            org: info.org || null,
+          };
+          const updated = await Activity.findByIdAndUpdate(
+            doc._id,
+            { $set: { "meta.location": loc } },
+            { new: true }
+          );
+          try {
+            const io = req.app && req.app.get && req.app.get("io");
+            if (io) io.emit("analytics:event:update", updated);
+          } catch (ee) {}
+        }
+      }
+    } catch (err) {
+      // ignore geolocation errors
+    }
+  })();
+});
+
+// GET /api/analytics/monthly - simple last-30-days metrics (page_views, add_to_cart, order_placed)
+const monthlyStats = handler(async (req, res) => {
+  const now = new Date();
+  const start = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 30); // 30 days ago
+
+  // counts per day for the last 30 days
+  const pipeline = [
+    { $match: { createdAt: { $gte: start } } },
+    {
+      $project: {
+        day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+        event_type: 1,
+      },
+    },
+    {
+      $group: {
+        _id: { day: "$day", event: "$event_type" },
+        count: { $sum: 1 },
+      },
+    },
+  ];
+
+  const agg = await Activity.aggregate(pipeline);
+
+  // reduce into easy maps
+  const byDay = {};
+  agg.forEach((r) => {
+    const d = r._id.day;
+    const e = r._id.event;
+    byDay[d] = byDay[d] || { page_view: 0, add_to_cart: 0, order_placed: 0 };
+    if (e === "page_view") byDay[d].page_view = r.count;
+    if (e === "add_to_cart") byDay[d].add_to_cart = r.count;
+    if (e === "order_placed") byDay[d].order_placed = r.count;
+  });
+
+  // totals for last 30 days
+  const totals = { page_view: 0, add_to_cart: 0, order_placed: 0 };
+  Object.values(byDay).forEach((v) => {
+    totals.page_view += v.page_view || 0;
+    totals.add_to_cart += v.add_to_cart || 0;
+    totals.order_placed += v.order_placed || 0;
+  });
+
+  // compute unique sessions (visitors) per day
+  const pvPipeline = [
+    { $match: { createdAt: { $gte: start }, event_type: "page_view" } },
+    {
+      $project: {
+        day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+        session_id: "$session_id",
+      },
+    },
+    { $group: { _id: { day: "$day", session: "$session_id" } } },
+    { $group: { _id: "$_id.day", uniqueSessions: { $sum: 1 } } },
+  ];
+  const pvAgg = await Activity.aggregate(pvPipeline);
+  const visitorsByDay = {};
+  pvAgg.forEach((r) => {
+    visitorsByDay[r._id] = r.uniqueSessions || 0;
+  });
+
+  // add visitors per day into byDay structure
+  Object.keys(byDay).forEach((d) => {
+    byDay[d].visitors = visitorsByDay[d] || 0;
+  });
+
+  // include visitors total
+  totals.visitors = Object.values(byDay).reduce(
+    (s, v) => s + (v.visitors || 0),
+    0
+  );
+
+  res.status(200).json({ totals, byDay });
 });
 
 // GET /api/analytics/events
@@ -122,5 +246,6 @@ module.exports = {
   logEvent,
   getEvents,
   getSummary,
+  monthlyStats,
   getCartForActivity,
 };
