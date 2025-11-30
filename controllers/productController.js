@@ -235,13 +235,7 @@ const addToCart = handler(async (req, res) => {
         },
         meta: mergedMeta,
       });
-      // emit realtime analytics event
-      try {
-        const io = req.app && req.app.get && req.app.get("io");
-        if (io) io.emit("analytics:event", activityDoc);
-      } catch (err) {
-        // ignore
-      }
+      // realtime socket emission removed — analytics consumers should poll
       // async enrich geolocation for server-side logged events
       (async () => {
         try {
@@ -268,10 +262,7 @@ const addToCart = handler(async (req, res) => {
                 { $set: { "meta.location": loc } },
                 { new: true }
               );
-              try {
-                const io2 = req.app && req.app.get && req.app.get("io");
-                if (io2) io2.emit("analytics:event:update", updated);
-              } catch (e) {}
+              // socket.io emission removed; REST endpoints will return updated docs
             }
           }
         } catch (e) {

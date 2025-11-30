@@ -260,11 +260,7 @@ const createOrder = asyncHandler(async (req, res) => {
           null,
       },
     });
-    // Emit realtime event
-    try {
-      const io = req.app && req.app.get && req.app.get("io");
-      if (io) io.emit("analytics:event", activityDoc);
-    } catch (err) {}
+    // realtime socket emission removed — remain REST-only
 
     // async geo enrichment
     (async () => {
@@ -292,10 +288,7 @@ const createOrder = asyncHandler(async (req, res) => {
               { $set: { "meta.location": loc } },
               { new: true }
             );
-            try {
-              const io2 = req.app && req.app.get && req.app.get("io");
-              if (io2) io2.emit("analytics:event:update", updated);
-            } catch (e) {}
+            // socket.io emission removed — REST-only
           }
         }
       } catch (e) {}

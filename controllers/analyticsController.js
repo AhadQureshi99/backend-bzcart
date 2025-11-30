@@ -36,14 +36,7 @@ const logEvent = handler(async (req, res) => {
 
   res.status(201).json(doc);
 
-  // Emit realtime socket event (if dashboards connected)
-  try {
-    const io = req.app && req.app.get && req.app.get("io");
-    if (io) io.emit("analytics:event", doc);
-  } catch (e) {
-    // swallow
-    console.warn("analyticsController: socket emit failed", e?.message || e);
-  }
+  // Socket-based realtime updates removed — analytics will be served via REST
 
   // Non-blocking: enrich the doc with geo lookup based on IP when available (best-effort)
   (async () => {
@@ -68,10 +61,7 @@ const logEvent = handler(async (req, res) => {
             { $set: { "meta.location": loc } },
             { new: true }
           );
-          try {
-            const io = req.app && req.app.get && req.app.get("io");
-            if (io) io.emit("analytics:event:update", updated);
-          } catch (ee) {}
+          // removed socket.io emission; REST endpoint serves updated events
         }
       }
     } catch (err) {

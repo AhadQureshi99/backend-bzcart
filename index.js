@@ -7,41 +7,141 @@ const http = require("http");
 
 const app = express();
 const server = http.createServer(app);
-const { Server } = require("socket.io");
 
-// Safe require function with detailed error reporting
-function safeRequire(relPath) {
+// Safe path parsing function with comprehensive error handling
+function safeParsePath(path) {
+  if (typeof path !== "string") return path;
+
+  const trimmedPath = path.trim();
+
+  // Handle obviously invalid cases
+  if (/^https?:\/\//i.test(trimmedPath)) {
+    console.warn(
+      `Invalid route path detected (appears to be a full URL): "${trimmedPath}". Replacing with root path "/"`
+    );
+    return "/";
+  }
+
+  // Handle malformed parameter syntax where colon is not preceded by a slash
+  if (trimmedPath.startsWith(":") && !trimmedPath.startsWith("/:")) {
+    console.warn(
+      `Invalid route path detected (starts with lone colon): "${trimmedPath}". Replacing with root path "/"`
+    );
+    return "/";
+  }
+
   try {
-    const module = require(relPath);
-    console.log(`✓ Successfully loaded module: ${relPath}`);
+    // Attempt to parse the path with path-to-regexp's parse function (v8+)
+    const ptre = require("path-to-regexp");
+    const parser =
+      ptre && typeof ptre.parse === "function"
+        ? ptre.parse
+        : typeof ptre === "function"
+        ? ptre
+        : null;
+    if (parser) {
+      parser(trimmedPath);
+    } else {
+      // if the library shape is unexpected, warn and continue — we already
+      // sanitized obvious bad cases above (URLs and lone-colon starts)
+      console.warn(
+        "path-to-regexp parse unavailable, skipping deep parse for:",
+        trimmedPath
+      );
+    }
+    return trimmedPath;
+  } catch (error) {
+    if (error.message.includes("Missing parameter name")) {
+      console.error(`Invalid route pattern detected: "${trimmedPath}"`);
+      console.error(`Error: ${error.message}`);
+      console.error(
+        "This error occurs when a route contains an unescaped colon (:) that is interpreted as an incomplete parameter."
+      );
+      console.error(
+        'Replacing invalid route with root path "/" to prevent application crash.'
+      );
+      return "/";
+    }
+    // For other parsing errors, re-throw so they can be handled normally
+    throw error;
+  }
+}
+
+// Create a safe router factory that validates all route paths
+const originalRouter = express.Router;
+express.Router = function (options) {
+  const router = originalRouter.call(this, options);
+
+  const methods = [
+    "get",
+    "post",
+    "put",
+    "delete",
+    "patch",
+    "options",
+    "head",
+    "all",
+    "use",
+  ];
+
+  methods.forEach((method) => {
+    const originalMethod = router[method];
+    router[method] = function (path, ...handlers) {
+      if (typeof path === "string") {
+        const safePath = safeParsePath(path);
+        return originalMethod.call(this, safePath, ...handlers);
+      }
+      return originalMethod.call(this, path, ...handlers);
+    };
+  });
+
+  return router;
+};
+
+// Safe require function with better error reporting
+function safeRequire(modulePath) {
+  try {
+    const module = require(modulePath);
+    console.log(`✓ Successfully loaded module: ${modulePath}`);
     return module;
-  } catch (err) {
-    console.error(`✗ Failed to load module ${relPath}:`, err.message);
-    if (err.message.includes('Missing parameter name')) {
-      console.error(`This error is caused by an invalid route pattern in ${relPath}.`);
-      console.error(`The route contains an unescaped colon (:) that is being interpreted as a route parameter without a name.`);
-    }
-    throw err;
+  } catch (error) {
+    console.error(`✗ Failed to load module ${modulePath}:`, error.message);
+    throw error;
   }
 }
 
-// Function to safely register routes with detailed error reporting
-function registerRoutes(basePath, router, routerName) {
+// Function to safely register routes
+function registerRoutes(basePath, ...routeModules) {
+  const routerName =
+    routeModules.length > 0 &&
+    typeof routeModules[routeModules.length - 1] === "string"
+      ? routeModules.pop()
+      : "unknown routes";
+
   try {
-    app.use(basePath, router);
-    console.log(`✓ Successfully registered routes for: ${basePath}`);
-  } catch (err) {
-    console.error(`✗ Error registering routes for ${routerName} at path "${basePath}":`, err.message);
-    if (err.message.includes('Missing parameter name')) {
-      console.error(`This error indicates that one of the route patterns in ${routerName} contains an unescaped colon (:)`);
-      console.error(`that is being interpreted as the start of a route parameter without a valid parameter name.`);
-    }
-    throw err;
+    const safeBasePath = safeParsePath(basePath);
+    app.use(safeBasePath, ...routeModules);
+    console.log(
+      `✓ Successfully registered routes for: ${safeBasePath} (${routerName})`
+    );
+  } catch (error) {
+    console.error(
+      `✗ Error registering routes for ${routerName} at path "${basePath}":`,
+      error.message
+    );
+    throw error;
   }
 }
 
-// Load route modules with error isolation
-let slideRouter, categoryRouter, productRouter, brandRouter, reelRouter, dealRoutes;
+require("dotenv").config();
+
+// Load route modules safely
+let slideRouter,
+  categoryRouter,
+  productRouter,
+  brandRouter,
+  reelRouter,
+  dealRoutes;
 
 try {
   slideRouter = safeRequire("./routes/slideRoutes");
@@ -51,54 +151,45 @@ try {
   reelRouter = safeRequire("./routes/reelRoutes");
   dealRoutes = safeRequire("./routes/dealRoutes");
 } catch (error) {
-  console.error("Error loading route modules. Please check the indicated route file for invalid route patterns.");
+  console.error(
+    "Failed to load one or more route modules. The application cannot start without valid route definitions."
+  );
   throw error;
 }
 
-// Socket.io setup
-const io = new Server(server, {
-  cors: {
-    origin: [
-      "http://localhost:5173",
-      "https://dashboardbzcart.vercel.app",
-      "https://dashboard.bzcart.store",
-      "https://bz-cart-d-ashboard.vercel.app",
-      "https://bzcart.store",
-      "http://localhost:5174",
-      "http://localhost:5175",
-    ],
-    methods: ["GET", "POST"],
-  },
-});
-
-app.set("io", io);
-
-require("dotenv").config();
-
 // CORS configuration
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "https://bz-cart-d-ashboard.vercel.app",
-    "https://dashboardbzcart.vercel.app",
-    "https://bzcart.store",
-    "https://www.bzcart.store",
-    "https://www.dashboard.bzcart.store",
-    "https://dashboards.bzcart.store",
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true,
-}));
+const allowedOrigins = (
+  process.env.ALLOWED_ORIGINS ||
+  "http://localhost:5173,http://localhost:5174,http://localhost:5175,https://bz-cart-d-ashboard.vercel.app,https://dashboardbzcart.vercel.app,https://dashboard.bzcart.store,https://bzcart.store,https://www.bzcart.store,https://api.bzcart.store"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn("CORS request blocked from unauthorized origin:", origin);
+        callback(new Error("Not allowed by CORS policy"), false);
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
+
+// Middleware
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 
 // Multer configuration
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
     if (!file.mimetype.startsWith("image/")) {
       return cb(new Error("Only image files are allowed"), false);
@@ -110,35 +201,37 @@ const upload = multer({
   { name: "background", maxCount: 1 },
 ]);
 
-// Middleware
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: false, limit: "50mb" }));
-
 // Connect to database
 connectDB();
 
-// Register routes with error isolation
+// Register all routes with path validation
 registerRoutes("/api/users", require("./routes/userRoutes"), "userRoutes");
 registerRoutes("/api/admins", require("./routes/adminRoutes"), "adminRoutes");
 registerRoutes("/api/products", productRouter, "productRoutes");
-registerRoutes("/api/payment", require("./routes/paymentRoutes"), "paymentRoutes");
+registerRoutes(
+  "/api/payment",
+  require("./routes/paymentRoutes"),
+  "paymentRoutes"
+);
 registerRoutes("/api/orders", require("./routes/orderRoutes"), "orderRoutes");
 registerRoutes("/api/slides", upload, slideRouter, "slideRoutes");
 registerRoutes("/api/categories", categoryRouter, "categoryRoutes");
 registerRoutes("/api/brands", brandRouter, "brandRoutes");
 registerRoutes("/api/reel", reelRouter, "reelRoutes");
 registerRoutes("/api", dealRoutes, "dealRoutes");
-registerRoutes("/api/analytics", require("./routes/analyticsRoutes"), "analyticsRoutes");
+registerRoutes(
+  "/api/analytics",
+  require("./routes/analyticsRoutes"),
+  "analyticsRoutes"
+);
 
 // Multer error handling
-const handleMulterError = (err, req, res, next) => {
+app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     return res.status(400).json({ message: `Upload error: ${err.message}` });
   }
   next(err);
-};
-
-app.use(handleMulterError);
+});
 
 // Error handling middleware
 app.use(errorHandler);
@@ -150,10 +243,25 @@ server.listen(PORT, () => {
   console.log(`Server started successfully on port: ${PORT}`);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('Server closed');
+// Graceful shutdown handling
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, shutting down gracefully");
+  server.close((err) => {
+    if (err) {
+      console.error("Error during server shutdown:", err);
+      process.exit(1);
+    }
+    console.log("Server closed successfully");
+  });
+});
+
+process.on("SIGINT", () => {
+  console.log("SIGINT received, shutting down gracefully");
+  server.close((err) => {
+    if (err) {
+      console.error("Error during server shutdown:", err);
+      process.exit(1);
+    }
+    process.exit(0);
   });
 });
