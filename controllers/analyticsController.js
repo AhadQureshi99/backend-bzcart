@@ -92,8 +92,35 @@ const getSummary = handler(async (req, res) => {
   });
 });
 
+// GET /api/analytics/cart?guest_id=... OR ?user_id=...
+// Returns cart items for the provided identifier (dashboard-only; protects via x-dashboard-secret header)
+const getCartForActivity = handler(async (req, res) => {
+  const { guest_id, user_id } = req.query;
+  if (!guest_id && !user_id) {
+    res.status(400);
+    throw new Error("guest_id or user_id is required");
+  }
+
+  const Cart = require("../models/cartModel");
+
+  const q = {};
+  if (guest_id) q.guest_id = String(guest_id);
+  else if (user_id && mongoose.Types.ObjectId.isValid(user_id))
+    q.user_id = user_id;
+  else if (user_id) {
+    res.status(400);
+    throw new Error("Invalid user_id");
+  }
+
+  const items = await Cart.find(q)
+    .populate("product_id")
+    .sort({ createdAt: -1 });
+  res.status(200).json(items || []);
+});
+
 module.exports = {
   logEvent,
   getEvents,
   getSummary,
+  getCartForActivity,
 };

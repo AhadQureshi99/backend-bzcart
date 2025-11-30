@@ -30,5 +30,10 @@ const requireDashboardSecret = (req, res, next) => {
 
 router.get("/events", requireDashboardSecret, getEvents);
 router.get("/summary", requireDashboardSecret, getSummary);
+router.get(
+  "/cart",
+  requireDashboardSecret,
+  require("../controllers/analyticsController").getCartForActivity
+);
 
 module.exports = router;
