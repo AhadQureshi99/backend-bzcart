@@ -229,10 +229,27 @@ const createOrder = asyncHandler(async (req, res) => {
       url: req.headers.referer || null,
       data: {
         order_id: order._id,
-        products: products.map((p) => ({
-          product_id: p.product_id,
-          quantity: p.quantity,
-        })),
+        products: products.map((p) => {
+          // find canonical product object from validatedProducts when available
+          const validated = validatedProducts.find(
+            (vp) => String(vp.product._id) === String(p.product_id)
+          );
+          const productObj = validated?.product || null;
+          let finalImage = p.selected_image;
+          if (productObj && Array.isArray(productObj.product_images)) {
+            if (productObj.product_images.includes(p.selected_image)) {
+              finalImage = p.selected_image;
+            } else if (productObj.product_images.length) {
+              finalImage = productObj.product_images[0];
+            }
+          }
+          return {
+            product_id: p.product_id,
+            product_name: productObj?.product_name || null,
+            selected_image: finalImage || null,
+            quantity: p.quantity,
+          };
+        }),
         total_amount: final_total,
       },
     });

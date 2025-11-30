@@ -157,11 +157,31 @@ const addToCart = handler(async (req, res) => {
       0
     );
     try {
+      // Canonical product fields from DB (use these for analytics to avoid stale/mismatched client payloads)
       const productName = product?.product_name || null;
       const productPrice =
         product?.product_discounted_price ||
         product?.product_base_price ||
         null;
+
+      // Choose a validated selected image: prefer the one passed in request if it's present in product images; else use product's first image
+      let finalSelectedImage = null;
+      if (
+        selected_image &&
+        Array.isArray(product.product_images) &&
+        product.product_images.includes(selected_image)
+      ) {
+        finalSelectedImage = selected_image;
+      } else if (
+        Array.isArray(product.product_images) &&
+        product.product_images.length > 0
+      ) {
+        finalSelectedImage = product.product_images[0];
+      } else if (selected_image) {
+        // if product has no images registered but client sent one (e.g., external URL), fall back to it
+        finalSelectedImage = selected_image;
+      }
+
       await Activity.create({
         user_id:
           user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
@@ -174,7 +194,7 @@ const addToCart = handler(async (req, res) => {
           product_name: productName,
           price: productPrice,
           selected_size: selected_size || null,
-          selected_image,
+          selected_image: finalSelectedImage,
           quantity: 1,
           cart_item_count: totalItems,
         },
