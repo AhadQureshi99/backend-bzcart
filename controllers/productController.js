@@ -182,6 +182,33 @@ const addToCart = handler(async (req, res) => {
         finalSelectedImage = selected_image;
       }
 
+      // Merge server meta and optional client-provided meta (ua/device_model) if present
+      const mergedMeta = Object.assign(
+        {
+          server_logged: true,
+          ip:
+            req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
+            req.ip ||
+            null,
+        },
+        req.body.meta || {}
+      );
+
+      // full cart snapshot for historical accuracy (server-canonical)
+      const cartSnapshot = updatedCarts.map((it) => ({
+        _id: it._id,
+        product_id: it.product_id?._id || it.product_id,
+        product_name: it.product_id?.product_name || null,
+        selected_image:
+          it.selected_image || it.product_id?.product_images?.[0] || null,
+        selected_size: it.selected_size || null,
+        quantity: it.quantity || 0,
+        price:
+          it.product_id?.product_discounted_price ||
+          it.product_id?.product_base_price ||
+          null,
+      }));
+
       const activityDoc = await Activity.create({
         user_id:
           user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,
@@ -204,14 +231,9 @@ const addToCart = handler(async (req, res) => {
               ? product.product_images
               : [],
           },
+          cart_snapshot: cartSnapshot,
         },
-        meta: {
-          server_logged: true,
-          ip:
-            req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
-            req.ip ||
-            null,
-        },
+        meta: mergedMeta,
       });
       // emit realtime analytics event
       try {

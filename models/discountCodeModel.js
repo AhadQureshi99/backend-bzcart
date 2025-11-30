@@ -33,12 +33,13 @@ const discountCodeSchema = mongoose.Schema(
 );
 
 // Indexes for better performance
+// Keep unique index on 'code' via field option and avoid re-declaring it here
 discountCodeSchema.index({ email: 1 });
-discountCodeSchema.index({ code: 1 });
 discountCodeSchema.index({ isUsed: 1 });
-discountCodeSchema.index({ expiresAt: 1 });
 
-// TTL index to automatically delete expired codes
+// TTL index to automatically delete expired codes. Do not define a second
+// non-TTL index on expiresAt — TTL index is sufficient and avoids duplicate
+// index warnings.
 discountCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports =
