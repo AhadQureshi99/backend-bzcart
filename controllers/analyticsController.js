@@ -14,9 +14,9 @@ const logEvent = handler(async (req, res) => {
     throw new Error("event_type is required");
   }
 
-  // attach request IP to meta when available
-  const ip =
-    req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() || req.ip || null;
+  // attach request IP to meta when available (use helper that checks common proxy headers)
+  const { getClientIp } = require("../utils/getClientIp");
+  const ip = getClientIp(req);
   payload.meta = payload.meta || {};
   if (ip) payload.meta.ip = ip;
 
@@ -64,19 +64,25 @@ const logEvent = handler(async (req, res) => {
           if (cartItems && cartItems.length) {
             // Build a minimal snapshot compatible with other server logs
             payload.data = payload.data || {};
-            payload.data.cart_snapshot = cartItems.map((it) => ({
+            payload.data.cart_snapshot = cartItems.map((it) => {
+              const prod = it.product_id || {};
+              // choose selected image only if it legitimately belongs to the product
+              let sel = it.selected_image || null;
+              if (sel && Array.isArray(prod.product_images) && !prod.product_images.includes(sel)) {
+                sel = Array.isArray(prod.product_images) && prod.product_images.length ? prod.product_images[0] : sel;
+              }
+              return {
               _id: it._id,
               product_id: it.product_id?._id || it.product_id,
               product_name: it.product_id?.product_name || null,
-              selected_image:
-                it.selected_image || it.product_id?.product_images?.[0] || null,
+              selected_image: sel || null,
               selected_size: it.selected_size || null,
               quantity: it.quantity || 0,
               price:
                 it.product_id?.product_discounted_price ||
                 it.product_id?.product_base_price ||
                 null,
-            }));
+            } );
           }
         }
       } catch (e) {
@@ -232,41 +238,47 @@ const getEvents = handler(async (req, res) => {
     .limit(Number(limit))
     .skip(Number(skip));
 
-  res.status(200).json(results);
-});
+  // Try to enrich geolocation synchronously with a short timeout so the
+  // Activity returned to the client contains location when possible.
+  if (ip) {
+    try {
+      const url = `https://ipapi.co/${ip}/json/`;
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 1000);
+      let updated = null;
+      try {
+        const r = await fetch(url, { signal: controller.signal });
+        clearTimeout(t);
+        if (r && r.ok) {
+          const info = await r.json();
+          const loc = {
+            ip: ip,
+            city: info.city || null,
+            region: info.region || null,
+            country: info.country_name || info.country || null,
+            latitude: info.latitude || info.lat || null,
+            longitude: info.longitude || info.lon || null,
+            org: info.org || null,
+          };
+          updated = await Activity.findByIdAndUpdate(
+            doc._id,
+            { $set: { "meta.location": loc } },
+            { new: true }
+          );
+        }
+      } catch (e) {
+        // fetch/timeout error — fall through and return original doc
+      }
+      return res.status(201).json(updated || doc);
+    } catch (err) {
+      // fallback to returning the created doc
+      return res.status(201).json(doc);
+    }
+  }
 
-// GET /api/analytics/summary
-const getSummary = handler(async (req, res) => {
-  // Simple aggregation: counts by event_type, unique users, average session duration
-  const pipeline = [
-    {
-      $facet: {
-        countsByType: [{ $sortByCount: "$event_type" }, { $limit: 50 }],
-        uniqueUsers: [
-          { $match: { user_id: { $ne: null } } },
-          { $group: { _id: "$user_id" } },
-          { $count: "uniqueUsers" },
-        ],
-        sessionDurations: [
-          {
-            $match: {
-              event_type: "session_end",
-              duration_ms: { $exists: true },
-            },
-          },
-          {
-            $group: {
-              _id: null,
-              avgDuration: { $avg: "$duration_ms" },
-              count: { $sum: 1 },
-            },
-          },
-        ],
-      },
-    },
-  ];
-
-  const agg = await Activity.aggregate(pipeline);
+  // No IP or enrichment failed quickly — return original doc
+  return res.status(201).json(doc);
+  // End: synchronous geo enrichment attempt
   const data = agg[0] || {};
 
   res.status(200).json({

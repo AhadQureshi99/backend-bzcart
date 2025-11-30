@@ -4,6 +4,7 @@ const Product = require("../models/productModel");
 const discountCodeModel = require("../models/discountCodeModel");
 const asyncHandler = require("express-async-handler");
 const Cart = require("../models/cartModel");
+const { getClientIp } = require("../utils/getClientIp");
 const mongoose = require("mongoose");
 const Activity = require("../models/activityModel");
 
@@ -255,10 +256,7 @@ const createOrder = asyncHandler(async (req, res) => {
       meta: (function () {
         const m = {
           server_logged: true,
-          ip:
-            req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
-            req.ip ||
-            null,
+          ip: getClientIp(req),
         };
         try {
           const { parseUA } = require("../utils/uaParser");
@@ -277,16 +275,17 @@ const createOrder = asyncHandler(async (req, res) => {
     });
     // realtime socket emission removed — remain REST-only
 
-    // async geo enrichment
-    (async () => {
-      try {
-        const ip =
-          req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
-          req.ip ||
-          null;
-        if (ip) {
-          const url = `https://ipapi.co/${ip}/json/`;
-          const r = await fetch(url);
+    // Enrich geolocation synchronously (short timeout) so Activity will
+    // often include location immediately for dashboard reads.
+    try {
+      const ip = getClientIp(req);
+      if (ip) {
+        const url = `https://ipapi.co/${ip}/json/`;
+        const controller = new AbortController();
+        const tmr = setTimeout(() => controller.abort(), 1000);
+        try {
+          const r = await fetch(url, { signal: controller.signal });
+          clearTimeout(tmr);
           if (r && r.ok) {
             const info = await r.json();
             const loc = {
@@ -298,16 +297,19 @@ const createOrder = asyncHandler(async (req, res) => {
               longitude: info.longitude || info.lon || null,
               org: info.org || null,
             };
-            const updated = await Activity.findByIdAndUpdate(
+            await Activity.findByIdAndUpdate(
               activityDoc._id,
               { $set: { "meta.location": loc } },
               { new: true }
             );
-            // socket.io emission removed — REST-only
           }
+        } catch (e) {
+          /* ignore fetch/timeout */
         }
-      } catch (e) {}
-    })();
+      }
+    } catch (e) {
+      /* ignore */
+    }
   } catch (err) {
     console.warn("createOrder - analytics log failed:", err?.message || err);
   }

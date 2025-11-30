@@ -6,6 +6,7 @@ const reviewModel = require("../models/reviewModel");
 const Category = require("../models/categoryModel");
 const User = require("../models/userModel");
 const mongoose = require("mongoose");
+const { getClientIp } = require("../utils/getClientIp");
 
 const addToCart = handler(async (req, res) => {
   const { product_id, selected_image, guestId, selected_size } = req.body;
@@ -148,9 +149,30 @@ const addToCart = handler(async (req, res) => {
       console.log("addToCart - Created new cart item:", cart._id);
     }
 
-    const updatedCarts = await cartModel
+    let updatedCarts = await cartModel
       .find(user_id ? { user_id } : { guest_id: guestId })
       .populate("product_id");
+    // Normalize selected_image to ensure it refers to the product's images
+    updatedCarts = updatedCarts.map((it) => {
+      const prod = it.product_id || {};
+      let selected = it.selected_image || null;
+      if (
+        !selected ||
+        !Array.isArray(prod.product_images) ||
+        !prod.product_images.includes(selected)
+      ) {
+        // prefer product canonical image when mismatch
+        selected =
+          Array.isArray(prod.product_images) && prod.product_images.length
+            ? prod.product_images[0]
+            : selected;
+      }
+      // return a shallow copy with normalized selected_image so UI sees correct images
+      return Object.assign({}, it.toObject ? it.toObject() : it, {
+        selected_image: selected,
+        product_id: prod,
+      });
+    });
     // compute cart totals and include product info in server-side analytics
     const totalItems = updatedCarts.reduce(
       (t, it) => t + (it.quantity || 0),
@@ -165,6 +187,9 @@ const addToCart = handler(async (req, res) => {
         null;
 
       // Choose a validated selected image: prefer the one passed in request if it's present in product images; else use product's first image
+      // Choose selected image only when it belongs to the product (preferred).
+      // Otherwise, fall back to the product's canonical first image; if the
+      // product has no registered images, accept the client's selected_image.
       let finalSelectedImage = null;
       if (
         selected_image &&
@@ -178,7 +203,6 @@ const addToCart = handler(async (req, res) => {
       ) {
         finalSelectedImage = product.product_images[0];
       } else if (selected_image) {
-        // if product has no images registered but client sent one (e.g., external URL), fall back to it
         finalSelectedImage = selected_image;
       }
 
@@ -186,10 +210,7 @@ const addToCart = handler(async (req, res) => {
       const mergedMeta = Object.assign(
         {
           server_logged: true,
-          ip:
-            req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
-            req.ip ||
-            null,
+          ip: getClientIp(req),
         },
         req.body.meta || {}
       );
@@ -256,16 +277,16 @@ const addToCart = handler(async (req, res) => {
         meta: mergedMeta,
       });
       // realtime socket emission removed — analytics consumers should poll
-      // async enrich geolocation for server-side logged events
-      (async () => {
-        try {
-          const ip =
-            req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
-            req.ip ||
-            null;
-          if (ip) {
-            const url = `https://ipapi.co/${ip}/json/`;
-            const r = await fetch(url);
+      // Enrich geolocation for server-side logged events (best-effort, short timeout)
+      try {
+        const ip = getClientIp(req);
+        if (ip) {
+          const url = `https://ipapi.co/${ip}/json/`;
+          const controller = new AbortController();
+          const tmr = setTimeout(() => controller.abort(), 1000);
+          try {
+            const r = await fetch(url, { signal: controller.signal });
+            clearTimeout(tmr);
             if (r && r.ok) {
               const info = await r.json();
               const loc = {
@@ -277,18 +298,19 @@ const addToCart = handler(async (req, res) => {
                 longitude: info.longitude || info.lon || null,
                 org: info.org || null,
               };
-              const updated = await Activity.findByIdAndUpdate(
+              await Activity.findByIdAndUpdate(
                 activityDoc._id,
                 { $set: { "meta.location": loc } },
                 { new: true }
               );
-              // socket.io emission removed; REST endpoints will return updated docs
             }
+          } catch (e) {
+            /* ignore fetch/timeout */
           }
-        } catch (e) {
-          /* ignore */
         }
-      })();
+      } catch (e) {
+        /* ignore */
+      }
     } catch (e) {
       console.warn("addToCart - analytics log failed:", e?.message || e);
     }
@@ -327,7 +349,26 @@ const getMyCart = handler(async (req, res) => {
 
   try {
     const query = user_id ? { user_id } : { guest_id: guestId };
-    const carts = await cartModel.find(query).populate("product_id");
+    let carts = await cartModel.find(query).populate("product_id");
+    // normalize selected_image for each cart item similar to addToCart
+    carts = carts.map((it) => {
+      const prod = it.product_id || {};
+      let selected = it.selected_image || null;
+      if (
+        !selected ||
+        !Array.isArray(prod.product_images) ||
+        !prod.product_images.includes(selected)
+      ) {
+        selected =
+          Array.isArray(prod.product_images) && prod.product_images.length
+            ? prod.product_images[0]
+            : selected;
+      }
+      return Object.assign({}, it.toObject ? it.toObject() : it, {
+        selected_image: selected,
+        product_id: prod,
+      });
+    });
     console.log("getMyCart - Found carts:", carts.length);
     res.status(200).json(carts);
   } catch (err) {
@@ -413,9 +454,27 @@ const removeFromCart = handler(async (req, res) => {
       console.log("removeFromCart - Deleted cart item:", cart._id);
     }
 
-    const updatedCarts = await cartModel
+    let updatedCarts = await cartModel
       .find(user_id ? { user_id } : { guest_id: guestId })
       .populate("product_id");
+    updatedCarts = updatedCarts.map((it) => {
+      const prod = it.product_id || {};
+      let selected = it.selected_image || null;
+      if (
+        !selected ||
+        !Array.isArray(prod.product_images) ||
+        !prod.product_images.includes(selected)
+      ) {
+        selected =
+          Array.isArray(prod.product_images) && prod.product_images.length
+            ? prod.product_images[0]
+            : selected;
+      }
+      return Object.assign({}, it.toObject ? it.toObject() : it, {
+        selected_image: selected,
+        product_id: prod,
+      });
+    });
     console.log(
       "removeFromCart - Returning updated cart:",
       updatedCarts.length
