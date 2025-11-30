@@ -20,6 +20,29 @@ const logEvent = handler(async (req, res) => {
   payload.meta = payload.meta || {};
   if (ip) payload.meta.ip = ip;
 
+  // Best-effort: attach parsed UA fields into meta when available so events
+  // include os_name/os_version/device_model/device_type for the dashboard.
+  try {
+    const { parseUA } = require("../utils/uaParser");
+    const uaHeader = req.headers["user-agent"] || null;
+    if (uaHeader) {
+      const parsed = parseUA(uaHeader);
+      payload.meta.ua = payload.meta.ua || parsed.ua || uaHeader;
+      if (parsed.os_name)
+        payload.meta.os_name = payload.meta.os_name || parsed.os_name;
+      if (parsed.os_version)
+        payload.meta.os_version = payload.meta.os_version || parsed.os_version;
+      if (parsed.device_model)
+        payload.meta.device_model =
+          payload.meta.device_model || parsed.device_model;
+      if (parsed.device_type)
+        payload.meta.device_type =
+          payload.meta.device_type || parsed.device_type;
+    }
+  } catch (e) {
+    // ignore UA parse errors
+  }
+
   const doc = await Activity.create({
     user_id:
       user_id && mongoose.Types.ObjectId.isValid(user_id) ? user_id : null,

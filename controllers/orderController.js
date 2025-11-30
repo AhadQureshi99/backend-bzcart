@@ -252,13 +252,28 @@ const createOrder = asyncHandler(async (req, res) => {
         }),
         total_amount: final_total,
       },
-      meta: {
-        server_logged: true,
-        ip:
-          req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
-          req.ip ||
-          null,
-      },
+      meta: (function () {
+        const m = {
+          server_logged: true,
+          ip:
+            req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
+            req.ip ||
+            null,
+        };
+        try {
+          const { parseUA } = require("../utils/uaParser");
+          const uaHeader = req.headers["user-agent"] || null;
+          if (uaHeader) {
+            const parsed = parseUA(uaHeader);
+            m.ua = parsed.ua || uaHeader;
+            if (parsed.os_name) m.os_name = parsed.os_name;
+            if (parsed.os_version) m.os_version = parsed.os_version;
+            if (parsed.device_model) m.device_model = parsed.device_model;
+            if (parsed.device_type) m.device_type = parsed.device_type;
+          }
+        } catch (e) {}
+        return m;
+      })(),
     });
     // realtime socket emission removed — remain REST-only
 

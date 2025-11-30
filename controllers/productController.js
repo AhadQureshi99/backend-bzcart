@@ -194,6 +194,26 @@ const addToCart = handler(async (req, res) => {
         req.body.meta || {}
       );
 
+      // Attach parsed UA info (device model / os) when available
+      try {
+        const { parseUA } = require("../utils/uaParser");
+        const uaHeader = req.headers["user-agent"] || null;
+        if (uaHeader) {
+          const parsed = parseUA(uaHeader);
+          mergedMeta.ua = mergedMeta.ua || parsed.ua || uaHeader;
+          if (parsed.os_name)
+            mergedMeta.os_name = mergedMeta.os_name || parsed.os_name;
+          if (parsed.os_version)
+            mergedMeta.os_version = mergedMeta.os_version || parsed.os_version;
+          if (parsed.device_model)
+            mergedMeta.device_model =
+              mergedMeta.device_model || parsed.device_model;
+          if (parsed.device_type)
+            mergedMeta.device_type =
+              mergedMeta.device_type || parsed.device_type;
+        }
+      } catch (e) {}
+
       // full cart snapshot for historical accuracy (server-canonical)
       const cartSnapshot = updatedCarts.map((it) => ({
         _id: it._id,
