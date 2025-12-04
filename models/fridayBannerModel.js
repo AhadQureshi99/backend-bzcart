@@ -23,7 +23,7 @@ const fridayBannerSchema = new mongoose.Schema(
       required: false,
     },
     timer: {
-      type: String, // e.g. "2025-12-25T23:59:00"
+      type: String, // ISO format "2025-12-25T23:59:00"
       required: false,
     },
   },

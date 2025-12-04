@@ -8,7 +8,6 @@ const {
 
 const router = express.Router();
 
-// Multer for image + video
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
