@@ -17,6 +17,7 @@ const createOrder = asyncHandler(async (req, res) => {
     shipping_address,
     order_email,
     phone_number,
+    city,
     full_name,
     guestId,
     discount_code,
@@ -59,6 +60,8 @@ const createOrder = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Phone number is required");
   }
+  // city is optional but prefer non-empty string when provided
+  const shippingCity = city || null;
   if (!full_name) {
     console.log("createOrder - Missing full_name");
     res.status(400);
@@ -72,11 +75,13 @@ const createOrder = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Invalid email address");
   }
-  const phoneRegex = /^\+?\d{10,15}$/;
+  const phoneRegex = /^(?:\+92\d{10}|\d{11})$/;
   if (!phoneRegex.test(phone_number)) {
     console.log("createOrder - Invalid phone format:", phone_number);
     res.status(400);
-    throw new Error("Invalid phone number");
+    throw new Error(
+      "Invalid phone number. Provide 11-digit local number or +92XXXXXXXXXX"
+    );
   }
 
   // Validate products and stock, and compute shipping total
@@ -181,6 +186,7 @@ const createOrder = asyncHandler(async (req, res) => {
     user_id: userId, // Use userId (from req.user.id) for authenticated users
     guest_id: !userId ? guestId : undefined, // Only use guestId for non-authenticated users
     full_name,
+    city: shippingCity,
     products: products.map((item) => ({
       product_id: item.product_id,
       quantity: item.quantity,
@@ -193,6 +199,7 @@ const createOrder = asyncHandler(async (req, res) => {
     discount_applied,
     discount_code: discount_code_used,
     shipping_address,
+    city: shippingCity,
     order_email,
     phone_number,
     status: "pending",
@@ -230,6 +237,7 @@ const createOrder = asyncHandler(async (req, res) => {
       url: req.headers.referer || null,
       data: {
         order_id: order._id,
+        order_city: shippingCity || null,
         products: products.map((p) => {
           // find canonical product object from validatedProducts when available
           const validated = validatedProducts.find(

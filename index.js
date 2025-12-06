@@ -150,6 +150,7 @@ try {
   brandRouter = safeRequire("./routes/brandRoutes");
   reelRouter = safeRequire("./routes/reelRoutes");
   dealRoutes = safeRequire("./routes/dealRoutes");
+  campaignRoutes = safeRequire("./routes/campaignRoutes");
 } catch (error) {
   console.error(
     "Failed to load one or more route modules. The application cannot start without valid route definitions."
@@ -226,6 +227,7 @@ registerRoutes("/api/categories", categoryRouter, "categoryRoutes");
 registerRoutes("/api/brands", brandRouter, "brandRoutes");
 registerRoutes("/api/reel", reelRouter, "reelRoutes");
 registerRoutes("/api", dealRoutes, "dealRoutes");
+registerRoutes("/api/campaigns", campaignRoutes, "campaignRoutes");
 registerRoutes(
   "/api/analytics",
   require("./routes/analyticsRoutes"),

@@ -87,7 +87,16 @@ const orderSchema = mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      match: [/^\+?\d{10,15}$/, "Please provide a valid phone number"],
+      // Accept either local 11-digit numbers (e.g. 03001234567) or international +92XXXXXXXXXX
+      match: [
+        /^(?:\+92\d{10}|\d{11})$/,
+        "Please provide a valid phone number (11 digits or +92XXXXXXXXXX)",
+      ],
+    },
+    city: {
+      type: String,
+      required: false,
+      trim: true,
     },
   },
   { timestamps: true }

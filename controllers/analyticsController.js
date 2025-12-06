@@ -5,6 +5,23 @@ const mongoose = require("mongoose");
 // POST /api/analytics/event
 const logEvent = handler(async (req, res) => {
   const payload = req.body || {};
+  try {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      typeof console !== "undefined"
+    ) {
+      try {
+        console.debug &&
+          console.debug(
+            "analyticsController.logEvent - incoming payload:",
+            JSON.stringify(payload)
+          );
+      } catch (e) {
+        console.debug &&
+          console.debug("analyticsController.logEvent - payload", payload);
+      }
+    }
+  } catch (e) {}
   // allow either user_id in body or from auth
   const user_id = req.user?.id || payload.user_id || null;
   const eventType = payload.event_type;
