@@ -1,6 +1,6 @@
 const express = require("express");
 const multer = require("multer");
-const sharp = require("sharp");
+// require sharp lazily inside handler to avoid startup crash if not installed
 
 const router = express.Router();
 
@@ -12,6 +12,16 @@ async function processToWebP(buffer, maxKB = 100) {
   const maxBytes = maxKB * 1024;
   let quality = 80; // start quality
   let widthCap = 1600;
+
+  // require sharp here so missing module doesn't crash the whole app
+  let sharp;
+  try {
+    sharp = require("sharp");
+  } catch (e) {
+    throw new Error(
+      "Server-side image processing unavailable: 'sharp' module not installed"
+    );
+  }
 
   // initial metadata
   let img = sharp(buffer).rotate();
