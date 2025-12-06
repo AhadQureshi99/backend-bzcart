@@ -259,6 +259,14 @@ app.use("/api/friday-banner", require("./routes/fridayBannerRoutes"));
 
 
 // Apply multer error handling after routes
+// Named multer error handler (defined here so it can be referenced later)
+function handleMulterError(err, req, res, next) {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ message: `Upload error: ${err.message}` });
+  }
+  next(err);
+}
+
 app.use(handleMulterError);
 
 // General error handling middleware
