@@ -110,9 +110,20 @@ router.post("/upload-server", upload.single("file"), async (req, res) => {
     if (!req.file || !req.file.buffer) {
       return res.status(400).json({ message: "No file uploaded" });
     }
-
     const fs = require("fs");
     const path = require("path");
+
+    // Enforce server-side constraints: must be webp and <= 100KB
+    const maxBytes = 100 * 1024;
+    const mimetype = req.file.mimetype || "";
+    if (!mimetype.includes("webp") && !mimetype.includes("image/webp")) {
+      return res.status(400).json({ message: "Only WebP images are accepted" });
+    }
+    if (req.file.buffer.length > maxBytes) {
+      return res
+        .status(400)
+        .json({ message: "File exceeds max size of 100KB" });
+    }
 
     const imagesDir = path.join(__dirname, "..", "images");
     if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
