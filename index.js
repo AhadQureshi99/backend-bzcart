@@ -257,7 +257,6 @@ app.use("/api/reel", reelRouter);
 app.use("/api", dealRoutes);
 app.use("/api/friday-banner", require("./routes/fridayBannerRoutes"));
 
-
 // Apply multer error handling after routes
 // Named multer error handler (defined here so it can be referenced later)
 function handleMulterError(err, req, res, next) {
