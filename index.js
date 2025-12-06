@@ -234,6 +234,13 @@ registerRoutes(
   "analyticsRoutes"
 );
 
+// Upload processing route (server-side conversion to webp <=100KB)
+registerRoutes(
+  "/api/uploads",
+  require("./routes/uploadRoutes"),
+  "uploadRoutes"
+);
+
 // Multer error handling
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
