@@ -249,10 +249,20 @@ const monthlyStats = handler(async (req, res) => {
 
 // GET /api/analytics/events
 const getEvents = handler(async (req, res) => {
-  // optional filters: user_id, event_type, start, end, limit, skip
-  const { user_id, event_type, start, end, limit = 200, skip = 0 } = req.query;
+  // optional filters: user_id, guest_id, event_type, start, end, limit, skip
+  const {
+    user_id,
+    guest_id,
+    event_type,
+    start,
+    end,
+    limit = 200,
+    skip = 0,
+  } = req.query;
   const q = {};
   if (user_id && mongoose.Types.ObjectId.isValid(user_id)) q.user_id = user_id;
+  // support guest_id (string) for anonymous visitor filtering
+  if (guest_id) q.guest_id = String(guest_id);
   if (event_type) q.event_type = event_type;
   if (start || end) q.createdAt = {};
   if (start) q.createdAt.$gte = new Date(start);
