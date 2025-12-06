@@ -7,6 +7,7 @@ const http = require("http");
 
 const app = express();
 const server = http.createServer(app);
+const path = require("path");
 
 // Safe path parsing function with comprehensive error handling
 function safeParsePath(path) {
@@ -192,6 +193,9 @@ app.use(
 // Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
+
+// Serve uploaded images folder publicly
+app.use("/images", express.static(path.join(__dirname, "images")));
 
 // Multer configuration
 const storage = multer.memoryStorage();

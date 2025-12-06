@@ -103,4 +103,38 @@ router.post("/process-image", upload.single("file"), async (req, res) => {
   }
 });
 
+// POST /upload-server
+// Accepts a file (already processed if client chose to) and saves to server images folder
+router.post("/upload-server", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const fs = require("fs");
+    const path = require("path");
+
+    const imagesDir = path.join(__dirname, "..", "images");
+    if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+
+    // Ensure filename uses .webp
+    const timestamp = Date.now();
+    const filename = `upload_${timestamp}.webp`;
+    const filepath = path.join(imagesDir, filename);
+
+    // Write buffer to disk
+    fs.writeFileSync(filepath, req.file.buffer);
+
+    // Construct accessible URL (ensure your server serves /images)
+    const host = req.get("host");
+    const protocol = req.protocol;
+    const url = `${protocol}://${host}/images/${filename}`;
+
+    return res.json({ url, filename, size: req.file.buffer.length });
+  } catch (err) {
+    console.error("upload-server error:", err);
+    return res.status(500).json({ message: err.message || "Upload failed" });
+  }
+});
+
 module.exports = router;
