@@ -300,7 +300,7 @@ const sendResetEmail = (email, token) => {
   });
 
   const resetUrl = `${
-    process.env.FRONTEND_URL || "http://localhost:5173"
+    process.env.FRONTEND_URL || "https://bzcart.store"
   }/reset-password?token=${encodeURIComponent(token)}`;
 
   const mailOptions = {
