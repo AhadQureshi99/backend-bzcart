@@ -19,6 +19,20 @@ const userSchema = mongoose.Schema(
       type: String,
       default: "user",
     },
+    // Optional profile image URL
+    profileImage: {
+      type: String,
+      default: null,
+    },
+    // Password reset token and expiry
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

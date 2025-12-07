@@ -7,6 +7,9 @@ const {
   getAllUsers,
   subscribeUser,
   validateDiscountCode,
+  forgotPassword,
+  resetPassword,
+  updateProfileImage,
 } = require("../controllers/userController");
 const authHandler = require("../middlewares/authMiddleware");
 
@@ -19,5 +22,8 @@ userRouter.get("/me", authHandler, getCurrentUser);
 userRouter.get("/all-users", getAllUsers);
 userRouter.post("/subscribe", subscribeUser);
 userRouter.post("/validate-discount", validateDiscountCode);
+userRouter.post("/forgot-password", forgotPassword);
+userRouter.post("/reset-password", resetPassword);
+userRouter.patch("/profile-image", authHandler, updateProfileImage);
 
 module.exports = userRouter;

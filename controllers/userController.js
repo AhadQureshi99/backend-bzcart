@@ -287,6 +287,42 @@ const sendDiscountCode = (email, code) => {
   });
 };
 
+const sendResetEmail = (email, token) => {
+  const transporter = nodemailer.createTransport({
+    host: process.env.MAIL_HOST,
+    port: parseInt(process.env.MAIL_PORT),
+    secure: true,
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASS,
+    },
+    tls: { rejectUnauthorized: false },
+  });
+
+  const resetUrl = `${
+    process.env.FRONTEND_URL || "http://localhost:5173"
+  }/reset-password?token=${encodeURIComponent(token)}`;
+
+  const mailOptions = {
+    from: `bzcart <${FORCE_MAIL_FROM}>`,
+    to: email,
+    subject: "Password Reset Request - BZ Cart",
+    html: `<p>We received a request to reset your password.</p>
+      <p>Click the link below to reset your password. This link will expire in 1 hour.</p>
+      <p><a href="${resetUrl}">Reset Password</a></p>
+      <p>If you didn't request this, please ignore this email.</p>`,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error("Reset email error:", error);
+      throw new Error("Failed to send reset email");
+    } else {
+      console.log("Reset mail sent:", info.response);
+    }
+  });
+};
+
 const getCurrentUser = handler(async (req, res) => {
   const user_id = req.user?.id;
   console.log("userController - getCurrentUser: Called with user_id:", user_id);
@@ -439,6 +475,82 @@ const loginUser = handler(async (req, res) => {
   }
 });
 
+// Forgot password - generate token and email user
+const forgotPassword = handler(async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400);
+    throw new Error("Email is required");
+  }
+
+  const user = await userModel.findOne({ email });
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  // Generate a secure token
+  const token = crypto.randomBytes(20).toString("hex");
+  user.resetPasswordToken = token;
+  user.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+  await user.save();
+
+  sendResetEmail(email, token);
+  res.status(200).json({ message: "Reset email sent" });
+});
+
+// Reset password using token
+const resetPassword = handler(async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) {
+    res.status(400);
+    throw new Error("Token and new password are required");
+  }
+
+  const user = await userModel.findOne({
+    resetPasswordToken: token,
+    resetPasswordExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    res.status(400);
+    throw new Error("Invalid or expired token");
+  }
+
+  user.password = await bcrypt.hash(password, 10);
+  user.resetPasswordToken = null;
+  user.resetPasswordExpires = null;
+  await user.save();
+
+  res.status(200).json({ message: "Password reset successful" });
+});
+
+// Update profile image (authenticated)
+const updateProfileImage = handler(async (req, res) => {
+  const userId = req.user.id;
+  const { imageUrl } = req.body;
+  if (!imageUrl) {
+    res.status(400);
+    throw new Error("imageUrl is required");
+  }
+
+  const user = await userModel.findById(userId);
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  user.profileImage = imageUrl;
+  await user.save();
+
+  res
+    .status(200)
+    .json({
+      message: "Profile image updated",
+      profileImage: user.profileImage,
+    });
+});
+
 const getAllUsers = handler(async (req, res) => {
   console.log("userController - getAllUsers: Fetching all users");
   const users = await userModel.find({}, "_id username email role").lean();
@@ -533,4 +645,7 @@ module.exports = {
   getAllUsers,
   subscribeUser,
   validateDiscountCode,
+  forgotPassword,
+  resetPassword,
+  updateProfileImage,
 };
