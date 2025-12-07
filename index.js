@@ -32,24 +32,27 @@ function safeParsePath(path) {
   }
 
   try {
-    // Attempt to parse the path with path-to-regexp's parse function (v8+)
-    const ptre = require("path-to-regexp");
-    const parser =
-      ptre && typeof ptre.parse === "function"
-        ? ptre.parse
-        : typeof ptre === "function"
-        ? ptre
-        : null;
-    if (parser) {
-      parser(trimmedPath);
-    } else {
-      // if the library shape is unexpected, warn and continue — we already
-      // sanitized obvious bad cases above (URLs and lone-colon starts)
+    // Reject full URLs and other obviously invalid route strings early.
+    if (/:\/\//.test(trimmedPath) || /^https?:/i.test(trimmedPath)) {
       console.warn(
-        "path-to-regexp parse unavailable, skipping deep parse for:",
-        trimmedPath
+        `Rejected route path that appears to be a URL: "${trimmedPath}" -> using "/" instead`
       );
+      return "/";
     }
+
+    // If a colon appears but it's not used as a route parameter (i.e. not "/:param"),
+    // reject it to avoid path-to-regexp parsing errors (e.g. stray colons).
+    if (trimmedPath.includes(":")) {
+      const hasValidParam = /\/:\w+/.test(trimmedPath);
+      if (!hasValidParam) {
+        console.warn(
+          `Rejected route path containing stray colon: "${trimmedPath}" -> using "/" instead`
+        );
+        return "/";
+      }
+    }
+
+    // Accept the sanitized path
     return trimmedPath;
   } catch (error) {
     if (error.message.includes("Missing parameter name")) {
@@ -68,43 +71,17 @@ function safeParsePath(path) {
   }
 }
 
-// Create a safe router factory that validates all route paths
-const originalRouter = express.Router;
-express.Router = function (options) {
-  const router = originalRouter.call(this, options);
-
-  const methods = [
-    "get",
-    "post",
-    "put",
-    "delete",
-    "patch",
-    "options",
-    "head",
-    "all",
-    "use",
-  ];
-
-  methods.forEach((method) => {
-    const originalMethod = router[method];
-    router[method] = function (path, ...handlers) {
-      if (typeof path === "string") {
-        const safePath = safeParsePath(path);
-        return originalMethod.call(this, safePath, ...handlers);
-      }
-      return originalMethod.call(this, path, ...handlers);
-    };
-  });
-
-  return router;
-};
+// Note: previously this file contained a custom `express.Router` override
+// that attempted to sanitize and defensively register route paths. The
+// override was removed because it interfered with normal route parsing
+// and could cause the application to crash at startup when fed
+// unexpected route strings. Express's default router behavior is used
+// instead.
 
 // Safe require function with better error reporting
 function safeRequire(modulePath) {
   try {
-    const module = require(modulePath);
-    console.log(`✓ Successfully loaded module: ${modulePath}`);
-    return module;
+    return require(modulePath);
   } catch (error) {
     console.error(`✗ Failed to load module ${modulePath}:`, error.message);
     throw error;
@@ -122,9 +99,6 @@ function registerRoutes(basePath, ...routeModules) {
   try {
     const safeBasePath = safeParsePath(basePath);
     app.use(safeBasePath, ...routeModules);
-    console.log(
-      `✓ Successfully registered routes for: ${safeBasePath} (${routerName})`
-    );
   } catch (error) {
     console.error(
       `✗ Error registering routes for ${routerName} at path "${basePath}":`,
@@ -159,34 +133,45 @@ try {
   throw error;
 }
 
-// CORS configuration
-const allowedOrigins = (
-  process.env.ALLOWED_ORIGINS ||
-  "http://localhost:5173,http://localhost:5174,http://localhost:5175,https://bz-cart-d-ashboard.vercel.app,https://dashboardbzcart.vercel.app,https://dashboard.bzcart.store,https://bzcart.store,https://www.bzcart.store,https://api.bzcart.store"
-)
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+// CORS disabled - using manual CORS headers middleware instead
+// The cors package was causing path-to-regexp parsing errors.
 
-app.use(
-  cors({
-    origin: allowedOrigins,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "Accept",
-      "Origin",
-      "X-Requested-With",
-    ],
-    credentials: true,
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
-  })
-);
+// Manual CORS headers middleware (replaces the problematic cors package)
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "https://bz-cart-d-ashboard.vercel.app",
+    "https://dashboardbzcart.vercel.app",
+    "https://dashboard.bzcart.store",
+    "https://bzcart.store",
+    "https://www.bzcart.store",
+    "https://api.bzcart.store",
+  ];
 
-// Ensure explicit handling of preflight for all routes (helps some proxies)
-app.options("*", cors({ origin: allowedOrigins }));
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, Accept, Origin, X-Requested-With"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  // Handle preflight requests
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 // Middleware
 app.use(express.json({ limit: "50mb" }));
@@ -214,7 +199,7 @@ const upload = multer({
 // Connect to database
 connectDB();
 
-// Register all routes with path validation
+// Register all routes
 registerRoutes("/api/users", require("./routes/userRoutes"), "userRoutes");
 registerRoutes("/api/admins", require("./routes/adminRoutes"), "adminRoutes");
 registerRoutes("/api/products", productRouter, "productRoutes");
@@ -251,21 +236,13 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-// Middleware for parsing JSON and URL-encoded bodies
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: false, limit: "50mb" }));
+// Middleware for parsing JSON and URL-encoded bodies (already applied above)
+// Keep a single set of body parsers to avoid duplicate middleware registrations.
 
-// Routes
-app.use("/api/users", require("./routes/userRoutes"));
-app.use("/api/admins", require("./routes/adminRoutes"));
-app.use("/api/products", productRouter);
-app.use("/api/payment", require("./routes/paymentRoutes"));
-app.use("/api/orders", require("./routes/orderRoutes"));
-app.use("/api/slides", upload, slideRouter);
-app.use("/api/categories", categoryRouter);
-app.use("/api/brands", brandRouter);
-app.use("/api/reel", reelRouter);
-app.use("/api", dealRoutes);
+// Additional routes not registered via `registerRoutes` above
+// (Most routes are registered earlier through `registerRoutes`.)
+// Only register the Friday-banner routes here to avoid duplicate
+// registration of modules that were already registered above.
 app.use("/api/friday-banner", require("./routes/fridayBannerRoutes"));
 
 // Apply multer error handling after routes
