@@ -1,7 +1,6 @@
 const express = require("express");
 const errorHandler = require("./middlewares/errorMiddleware");
 const connectDB = require("./config/connectDB");
-const cors = require("cors");
 const multer = require("multer");
 const http = require("http");
 
@@ -142,9 +141,11 @@ app.use((req, res, next) => {
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
+    "http://dashboards.bzcart.store",
     "https://bz-cart-d-ashboard.vercel.app",
     "https://dashboardbzcart.vercel.app",
     "https://dashboard.bzcart.store",
+    "https://dashboards.bzcart.store",
     "https://bzcart.store",
     "https://www.bzcart.store",
     "https://api.bzcart.store",
