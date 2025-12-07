@@ -170,25 +170,23 @@ const allowedOrigins = (
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:5175",
-      "https://bz-cart-d-ashboard.vercel.app",
-      "https://dashboardbzcart.vercel.app",
-      "https://dashboardbzcart.vercel.app/",
-      "https://bz-cart.vercel.app",
-      "https://www.bzcart.store",
-      "https://bzcart.store",
-      "https://www.dashboard.bzcart.store",
-      "http://dashboards.bzcart.store",
-      "https://dashboards.bzcart.store",
-      "https://api.bzcart.store", // ✅ yeh add karoo
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Accept",
+      "Origin",
+      "X-Requested-With",
     ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 );
+
+// Ensure explicit handling of preflight for all routes (helps some proxies)
+app.options("*", cors({ origin: allowedOrigins }));
 
 // Middleware
 app.use(express.json({ limit: "50mb" }));
