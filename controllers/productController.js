@@ -718,6 +718,8 @@ const getProducts = handler(async (req, res) => {
       .populate("subcategories")
       .populate("reviews");
     console.log("getProducts - Found products:", products.length);
+    // Add caching headers for better performance
+    res.set("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
     res.status(200).json(products);
   } catch (err) {
     console.error("getProducts - Error:", err.message);
@@ -741,6 +743,8 @@ const getProductById = handler(async (req, res) => {
       throw new Error("Product not found");
     }
     console.log("getProductById - Found product:", product._id);
+    // Add caching headers for better performance
+    res.set("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
     res.status(200).json(product);
   } catch (err) {
     console.error("getProductById - Error:", err.message);
