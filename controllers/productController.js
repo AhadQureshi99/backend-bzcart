@@ -590,6 +590,16 @@ const createProduct = handler(async (req, res) => {
   }
 
   try {
+    // Check if product code already exists
+    const existingProduct = await productModel.findOne({ product_code });
+    if (existingProduct) {
+      console.log("createProduct - Product code already exists:", product_code);
+      res.status(409);
+      throw new Error(
+        `Product code "${product_code}" already exists. Please use a unique product code.`
+      );
+    }
+
     const categoryExists = await Category.findById(category);
     if (!categoryExists || categoryExists.parent_category) {
       console.log("createProduct - Invalid category:", category);
@@ -705,8 +715,15 @@ const createProduct = handler(async (req, res) => {
     res.status(201).json(populatedProduct);
   } catch (err) {
     console.error("createProduct - Error:", err.message);
-    res.status(500);
-    throw new Error("Failed to create product");
+    if (err.status) {
+      res.status(err.status);
+    } else if (err.code === 11000) {
+      res.status(409);
+      throw new Error(`Product code "${product_code}" already exists`);
+    } else {
+      res.status(500);
+    }
+    throw new Error(err.message || "Failed to create product");
   }
 });
 
@@ -803,6 +820,13 @@ const updateProduct = handler(async (req, res) => {
   console.log("updateProduct - Request body:", req.body);
 
   try {
+    // Validate ID format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.log("updateProduct - Invalid product ID format:", req.params.id);
+      res.status(400);
+      throw new Error("Invalid product ID format");
+    }
+
     const product = await productModel.findById(req.params.id);
     if (!product) {
       console.log("updateProduct - Product not found:", req.params.id);
@@ -991,6 +1015,13 @@ const deleteProduct = handler(async (req, res) => {
   console.log("deleteProduct - Request params:", req.params);
 
   try {
+    // Validate ID format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.log("deleteProduct - Invalid product ID format:", req.params.id);
+      res.status(400);
+      throw new Error("Invalid product ID format");
+    }
+
     const product = await productModel.findById(req.params.id);
     if (!product) {
       console.log("deleteProduct - Product not found:", req.params.id);
@@ -998,8 +1029,12 @@ const deleteProduct = handler(async (req, res) => {
       throw new Error("Product not found");
     }
 
-    await reviewModel.deleteMany({ product_id: req.params.id });
-    await cartModel.deleteMany({ product_id: req.params.id });
+    // Delete in parallel for better performance
+    await Promise.all([
+      reviewModel.deleteMany({ product_id: req.params.id }),
+      cartModel.deleteMany({ product_id: req.params.id }),
+    ]);
+
     await productModel.findByIdAndDelete(req.params.id);
 
     console.log("deleteProduct - Product deleted successfully:", req.params.id);
