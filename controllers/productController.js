@@ -735,8 +735,10 @@ const getProducts = handler(async (req, res) => {
       .populate("subcategories")
       .populate("reviews");
     console.log("getProducts - Found products:", products.length);
-    // Add caching headers for better performance
-    res.set("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
+    // Disable caching to ensure fresh product data
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     res.status(200).json(products);
   } catch (err) {
     console.error("getProducts - Error:", err.message);
