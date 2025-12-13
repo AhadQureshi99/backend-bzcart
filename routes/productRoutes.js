@@ -12,6 +12,9 @@ const {
   clearCart,
   submitReview,
   getReviews,
+  getMyWishlist,
+  removeFromWishlist,
+  addToWishlist,
 } = require("../controllers/productController");
 const authHandler = require("../middlewares/authMiddleware");
 
@@ -29,5 +32,8 @@ router.post("/cart/remove", authHandler, removeFromCart); // Apply authHandler
 router.delete("/cart/clear", authHandler, clearCart); // Apply authHandler
 router.post("/reviews/:productId", authHandler, submitReview); // Apply authHandler
 router.get("/reviews/:productId", getReviews); // Public access
+router.post("/wishlist/add", authHandler, addToWishlist); // optional auth — allows guest if guestId sent
+router.post("/wishlist/remove", authHandler, removeFromWishlist);
+router.get("/wishlist", authHandler, getMyWishlist);
 
 module.exports = router;
