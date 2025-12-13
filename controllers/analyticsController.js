@@ -123,6 +123,33 @@ const logEvent = handler(async (req, res) => {
     /* ignore general failures in this enrichment step */
   }
 
+  // Mark first-time page views: if this is the user's/guest's first activity
+  // ever, annotate the payload so the dashboard can treat them as "unique".
+  try {
+    if (eventType === "page_view") {
+      let isFirst = false;
+      if (user_id) {
+        const exists = await Activity.findOne({ user_id: user_id })
+          .select("_id")
+          .lean();
+        if (!exists) isFirst = true;
+      } else if (payload.guest_id) {
+        const exists = await Activity.findOne({
+          guest_id: String(payload.guest_id),
+        })
+          .select("_id")
+          .lean();
+        if (!exists) isFirst = true;
+      }
+      if (isFirst) {
+        payload.meta = payload.meta || {};
+        payload.meta.first_visit = true;
+      }
+    }
+  } catch (e) {
+    // best-effort only; do not fail logging on this
+  }
+
   let doc;
   try {
     doc = await Activity.create({
@@ -335,6 +362,119 @@ const getSummary = handler(async (req, res) => {
   });
 });
 
+// GET /api/analytics/weekly - last-7-days metrics split by unique/visitors/registered
+const weeklyStats = handler(async (req, res) => {
+  const now = new Date();
+  const start = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 7); // 7 days
+
+  // First-seen date per guest_id
+  const guestFirst = await Activity.aggregate([
+    { $match: { guest_id: { $exists: true, $ne: null } } },
+    { $group: { _id: "$guest_id", firstSeen: { $min: "$createdAt" } } },
+  ]);
+  const guestFirstMap = {};
+  guestFirst.forEach((g) => {
+    guestFirstMap[g._id] = new Date(g.firstSeen);
+  });
+
+  // First-seen date per user_id (registered)
+  const userFirst = await Activity.aggregate([
+    { $match: { user_id: { $exists: true, $ne: null } } },
+    { $group: { _id: "$user_id", firstSeen: { $min: "$createdAt" } } },
+  ]);
+  const userFirstMap = {};
+  userFirst.forEach((u) => {
+    userFirstMap[String(u._id)] = new Date(u.firstSeen);
+  });
+
+  // Active guest ids in the window
+  const activeGuestsAgg = await Activity.aggregate([
+    {
+      $match: {
+        createdAt: { $gte: start },
+        guest_id: { $exists: true, $ne: null },
+      },
+    },
+    { $group: { _id: "$guest_id" } },
+  ]);
+  const activeGuestIds = activeGuestsAgg.map((r) => r._id);
+
+  let uniqueGuests = 0;
+  let returningGuests = 0;
+  activeGuestIds.forEach((gid) => {
+    const first = guestFirstMap[gid];
+    if (first && first >= start) uniqueGuests++;
+    else returningGuests++;
+  });
+
+  // Active registered users in the window
+  const activeUsersAgg = await Activity.aggregate([
+    {
+      $match: {
+        createdAt: { $gte: start },
+        user_id: { $exists: true, $ne: null },
+      },
+    },
+    { $group: { _id: "$user_id" } },
+  ]);
+  const activeUserIds = activeUsersAgg.map((r) => String(r._id));
+  let registeredNew = 0;
+  let registeredReturning = 0;
+  activeUserIds.forEach((uid) => {
+    const first = userFirstMap[uid];
+    if (first && first >= start) registeredNew++;
+    else registeredReturning++;
+  });
+
+  // Events in window to classify add_to_cart and order_placed
+  const eventsInWindow = await Activity.find({
+    createdAt: { $gte: start },
+    event_type: { $in: ["add_to_cart", "order_placed"] },
+  }).lean();
+
+  const counts = {
+    unique: { add_to_cart: 0, order_placed: 0 },
+    visitors: { add_to_cart: 0, order_placed: 0 },
+    registered_new: { add_to_cart: 0, order_placed: 0 },
+    registered_returning: { add_to_cart: 0, order_placed: 0 },
+  };
+
+  eventsInWindow.forEach((e) => {
+    if (e.user_id) {
+      const uid = String(e.user_id);
+      const first = userFirstMap[uid];
+      if (first && first >= start) counts.registered_new[e.event_type]++;
+      else counts.registered_returning[e.event_type]++;
+    } else if (e.guest_id) {
+      const gid = e.guest_id;
+      const first = guestFirstMap[gid];
+      if (first && first >= start) counts.unique[e.event_type]++;
+      else counts.visitors[e.event_type]++;
+    }
+  });
+
+  res.status(200).json({
+    period: { start, end: now },
+    guests: {
+      unique_count: uniqueGuests,
+      returning_count: returningGuests,
+      breakdown: {
+        unique: counts.unique,
+        visitors: counts.visitors,
+      },
+    },
+    registered: {
+      active_count: activeUserIds.length,
+      new_count: registeredNew,
+      returning_count: registeredReturning,
+      breakdown: {
+        new: counts.registered_new,
+        returning: counts.registered_returning,
+      },
+    },
+  });
+});
+
 // GET /api/analytics/cart?guest_id=... OR ?user_id=...
 // Returns cart items for the provided identifier (dashboard-only; protects via x-dashboard-secret header)
 const getCartForActivity = handler(async (req, res) => {
@@ -366,5 +506,6 @@ module.exports = {
   getEvents,
   getSummary,
   monthlyStats,
+  weeklyStats,
   getCartForActivity,
 };
