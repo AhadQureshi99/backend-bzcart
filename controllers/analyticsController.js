@@ -363,28 +363,51 @@ const getSummary = handler(async (req, res) => {
 });
 
 // GET /api/analytics/weekly - last-7-days metrics split by unique/visitors/registered
+// Classification rule: a visitor is considered "unique" for their first visit; if they
+// come back later after a >3 hour gap from their first visit, they are treated as a returning visitor.
 const weeklyStats = handler(async (req, res) => {
   const now = new Date();
   const start = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 7); // 7 days
+  const THREE_HOURS = 1000 * 60 * 60 * 3;
 
-  // First-seen date per guest_id
-  const guestFirst = await Activity.aggregate([
+  // For guests: collect ordered timestamps per guest (sorted) and derive first/second
+  const guestTimesAgg = await Activity.aggregate([
     { $match: { guest_id: { $exists: true, $ne: null } } },
-    { $group: { _id: "$guest_id", firstSeen: { $min: "$createdAt" } } },
+    { $sort: { guest_id: 1, createdAt: 1 } },
+    { $group: { _id: "$guest_id", times: { $push: "$createdAt" } } },
+    {
+      $project: {
+        first: { $arrayElemAt: ["$times", 0] },
+        second: { $arrayElemAt: ["$times", 1] },
+      },
+    },
   ]);
-  const guestFirstMap = {};
-  guestFirst.forEach((g) => {
-    guestFirstMap[g._id] = new Date(g.firstSeen);
+  const guestTimesMap = {};
+  guestTimesAgg.forEach((g) => {
+    guestTimesMap[g._id] = {
+      first: g.first ? new Date(g.first) : null,
+      second: g.second ? new Date(g.second) : null,
+    };
   });
 
-  // First-seen date per user_id (registered)
-  const userFirst = await Activity.aggregate([
+  // For registered users: similar collection
+  const userTimesAgg = await Activity.aggregate([
     { $match: { user_id: { $exists: true, $ne: null } } },
-    { $group: { _id: "$user_id", firstSeen: { $min: "$createdAt" } } },
+    { $sort: { user_id: 1, createdAt: 1 } },
+    { $group: { _id: "$user_id", times: { $push: "$createdAt" } } },
+    {
+      $project: {
+        first: { $arrayElemAt: ["$times", 0] },
+        second: { $arrayElemAt: ["$times", 1] },
+      },
+    },
   ]);
-  const userFirstMap = {};
-  userFirst.forEach((u) => {
-    userFirstMap[String(u._id)] = new Date(u.firstSeen);
+  const userTimesMap = {};
+  userTimesAgg.forEach((u) => {
+    userTimesMap[String(u._id)] = {
+      first: u.first ? new Date(u.first) : null,
+      second: u.second ? new Date(u.second) : null,
+    };
   });
 
   // Active guest ids in the window
@@ -401,10 +424,26 @@ const weeklyStats = handler(async (req, res) => {
 
   let uniqueGuests = 0;
   let returningGuests = 0;
+  const uniqueGuestIds = [];
+  const returningGuestIds = [];
+
   activeGuestIds.forEach((gid) => {
-    const first = guestFirstMap[gid];
-    if (first && first >= start) uniqueGuests++;
-    else returningGuests++;
+    const times = guestTimesMap[gid] || {};
+    const first = times.first;
+    const second = times.second;
+    // if first seen in window and no second after 3 hours -> unique
+    if (first && first >= start) {
+      if (!second || second.getTime() <= first.getTime() + THREE_HOURS) {
+        uniqueGuests++;
+        if (uniqueGuestIds.length < 200) uniqueGuestIds.push(gid);
+      } else {
+        returningGuests++;
+        if (returningGuestIds.length < 200) returningGuestIds.push(gid);
+      }
+    } else {
+      returningGuests++;
+      if (returningGuestIds.length < 200) returningGuestIds.push(gid);
+    }
   });
 
   // Active registered users in the window
@@ -420,10 +459,26 @@ const weeklyStats = handler(async (req, res) => {
   const activeUserIds = activeUsersAgg.map((r) => String(r._id));
   let registeredNew = 0;
   let registeredReturning = 0;
+  const registeredNewIds = [];
+  const registeredReturningIds = [];
+
   activeUserIds.forEach((uid) => {
-    const first = userFirstMap[uid];
-    if (first && first >= start) registeredNew++;
-    else registeredReturning++;
+    const times = userTimesMap[uid] || {};
+    const first = times.first;
+    const second = times.second;
+    if (first && first >= start) {
+      if (!second || second.getTime() <= first.getTime() + THREE_HOURS) {
+        registeredNew++;
+        if (registeredNewIds.length < 200) registeredNewIds.push(uid);
+      } else {
+        registeredReturning++;
+        if (registeredReturningIds.length < 200)
+          registeredReturningIds.push(uid);
+      }
+    } else {
+      registeredReturning++;
+      if (registeredReturningIds.length < 200) registeredReturningIds.push(uid);
+    }
   });
 
   // Events in window to classify add_to_cart and order_placed
@@ -442,14 +497,32 @@ const weeklyStats = handler(async (req, res) => {
   eventsInWindow.forEach((e) => {
     if (e.user_id) {
       const uid = String(e.user_id);
-      const first = userFirstMap[uid];
-      if (first && first >= start) counts.registered_new[e.event_type]++;
-      else counts.registered_returning[e.event_type]++;
+      const times = userTimesMap[uid] || {};
+      const first = times.first;
+      const second = times.second;
+      if (
+        first &&
+        first >= start &&
+        (!second || second.getTime() <= first.getTime() + THREE_HOURS)
+      ) {
+        counts.registered_new[e.event_type]++;
+      } else {
+        counts.registered_returning[e.event_type]++;
+      }
     } else if (e.guest_id) {
       const gid = e.guest_id;
-      const first = guestFirstMap[gid];
-      if (first && first >= start) counts.unique[e.event_type]++;
-      else counts.visitors[e.event_type]++;
+      const times = guestTimesMap[gid] || {};
+      const first = times.first;
+      const second = times.second;
+      if (
+        first &&
+        first >= start &&
+        (!second || second.getTime() <= first.getTime() + THREE_HOURS)
+      ) {
+        counts.unique[e.event_type]++;
+      } else {
+        counts.visitors[e.event_type]++;
+      }
     }
   });
 
@@ -458,6 +531,8 @@ const weeklyStats = handler(async (req, res) => {
     guests: {
       unique_count: uniqueGuests,
       returning_count: returningGuests,
+      unique_ids: uniqueGuestIds,
+      returning_ids: returningGuestIds,
       breakdown: {
         unique: counts.unique,
         visitors: counts.visitors,
@@ -467,6 +542,8 @@ const weeklyStats = handler(async (req, res) => {
       active_count: activeUserIds.length,
       new_count: registeredNew,
       returning_count: registeredReturning,
+      new_ids: registeredNewIds,
+      returning_ids: registeredReturningIds,
       breakdown: {
         new: counts.registered_new,
         returning: counts.registered_returning,
