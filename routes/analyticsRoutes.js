@@ -36,6 +36,11 @@ router.get(
   require("../controllers/analyticsController").monthlyStats
 );
 router.get(
+  "/weekly",
+  requireDashboardSecret,
+  require("../controllers/analyticsController").weeklyStats
+);
+router.get(
   "/cart",
   requireDashboardSecret,
   require("../controllers/analyticsController").getCartForActivity

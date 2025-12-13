@@ -123,6 +123,33 @@ const logEvent = handler(async (req, res) => {
     /* ignore general failures in this enrichment step */
   }
 
+  // Mark first-time page views: if this is the user's/guest's first activity
+  // ever, annotate the payload so the dashboard can treat them as "unique".
+  try {
+    if (eventType === "page_view") {
+      let isFirst = false;
+      if (user_id) {
+        const exists = await Activity.findOne({ user_id: user_id })
+          .select("_id")
+          .lean();
+        if (!exists) isFirst = true;
+      } else if (payload.guest_id) {
+        const exists = await Activity.findOne({
+          guest_id: String(payload.guest_id),
+        })
+          .select("_id")
+          .lean();
+        if (!exists) isFirst = true;
+      }
+      if (isFirst) {
+        payload.meta = payload.meta || {};
+        payload.meta.first_visit = true;
+      }
+    }
+  } catch (e) {
+    // best-effort only; do not fail logging on this
+  }
+
   let doc;
   try {
     doc = await Activity.create({
@@ -335,6 +362,258 @@ const getSummary = handler(async (req, res) => {
   });
 });
 
+// GET /api/analytics/weekly - last-7-days metrics split by unique/visitors/registered
+// Classification rule: a visitor is considered "unique" for their first visit; if they
+// come back later after a >3 hour gap from their first visit, they are treated as a returning visitor.
+const weeklyStats = handler(async (req, res) => {
+  const now = new Date();
+  const start = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 7); // 7 days
+  const THREE_HOURS = 1000 * 60 * 60 * 3;
+
+  // For guests: collect ordered timestamps per guest (sorted) and derive first/second
+  const guestTimesAgg = await Activity.aggregate([
+    { $match: { guest_id: { $exists: true, $ne: null } } },
+    { $sort: { guest_id: 1, createdAt: 1 } },
+    { $group: { _id: "$guest_id", times: { $push: "$createdAt" } } },
+    {
+      $project: {
+        first: { $arrayElemAt: ["$times", 0] },
+        second: { $arrayElemAt: ["$times", 1] },
+      },
+    },
+  ]);
+  const guestTimesMap = {};
+  guestTimesAgg.forEach((g) => {
+    guestTimesMap[g._id] = {
+      first: g.first ? new Date(g.first) : null,
+      second: g.second ? new Date(g.second) : null,
+    };
+  });
+
+  // For registered users: similar collection
+  const userTimesAgg = await Activity.aggregate([
+    { $match: { user_id: { $exists: true, $ne: null } } },
+    { $sort: { user_id: 1, createdAt: 1 } },
+    { $group: { _id: "$user_id", times: { $push: "$createdAt" } } },
+    {
+      $project: {
+        first: { $arrayElemAt: ["$times", 0] },
+        second: { $arrayElemAt: ["$times", 1] },
+      },
+    },
+  ]);
+  const userTimesMap = {};
+  userTimesAgg.forEach((u) => {
+    userTimesMap[String(u._id)] = {
+      first: u.first ? new Date(u.first) : null,
+      second: u.second ? new Date(u.second) : null,
+    };
+  });
+
+  // Active guest ids in the window
+  const activeGuestsAgg = await Activity.aggregate([
+    {
+      $match: {
+        createdAt: { $gte: start },
+        guest_id: { $exists: true, $ne: null },
+      },
+    },
+    { $group: { _id: "$guest_id" } },
+  ]);
+  const activeGuestIds = activeGuestsAgg.map((r) => r._id);
+
+  let uniqueGuests = 0;
+  let returningGuests = 0;
+  const uniqueGuestIds = [];
+  const returningGuestIds = [];
+
+  activeGuestIds.forEach((gid) => {
+    const times = guestTimesMap[gid] || {};
+    const first = times.first;
+    const second = times.second;
+    // if first seen in window and no second after 3 hours -> unique
+    if (first && first >= start) {
+      if (!second || second.getTime() <= first.getTime() + THREE_HOURS) {
+        uniqueGuests++;
+        if (uniqueGuestIds.length < 200) uniqueGuestIds.push(gid);
+      } else {
+        returningGuests++;
+        if (returningGuestIds.length < 200) returningGuestIds.push(gid);
+      }
+    } else {
+      returningGuests++;
+      if (returningGuestIds.length < 200) returningGuestIds.push(gid);
+    }
+  });
+
+  // Active registered users in the window
+  const activeUsersAgg = await Activity.aggregate([
+    {
+      $match: {
+        createdAt: { $gte: start },
+        user_id: { $exists: true, $ne: null },
+      },
+    },
+    { $group: { _id: "$user_id" } },
+  ]);
+  const activeUserIds = activeUsersAgg.map((r) => String(r._id));
+  let registeredNew = 0;
+  let registeredReturning = 0;
+  const registeredNewIds = [];
+  const registeredReturningIds = [];
+
+  activeUserIds.forEach((uid) => {
+    const times = userTimesMap[uid] || {};
+    const first = times.first;
+    const second = times.second;
+    if (first && first >= start) {
+      if (!second || second.getTime() <= first.getTime() + THREE_HOURS) {
+        registeredNew++;
+        if (registeredNewIds.length < 200) registeredNewIds.push(uid);
+      } else {
+        registeredReturning++;
+        if (registeredReturningIds.length < 200)
+          registeredReturningIds.push(uid);
+      }
+    } else {
+      registeredReturning++;
+      if (registeredReturningIds.length < 200) registeredReturningIds.push(uid);
+    }
+  });
+
+  // Attempt to resolve guest -> user mapping when a guest later signs up (best-effort)
+  const guestUserMap = {};
+  try {
+    const User = require("../models/userModel");
+    // For each sample guest id, try to find any activity record that later contains a user_id
+    const sampleGuestIds = [...uniqueGuestIds, ...returningGuestIds];
+    if (sampleGuestIds.length) {
+      // find activities for these guests where user_id exists
+      const linkActs = await Activity.find({
+        guest_id: { $in: sampleGuestIds },
+        user_id: { $ne: null },
+      })
+        .limit(500)
+        .lean();
+      const userIdsToLoad = Array.from(
+        new Set(linkActs.map((a) => String(a.user_id)).filter(Boolean))
+      );
+      let usersById = {};
+      if (userIdsToLoad.length) {
+        const users = await User.find({ _id: { $in: userIdsToLoad } }).select(
+          "_id username email"
+        );
+        usersById = users.reduce((acc, u) => {
+          acc[String(u._id)] = { username: u.username, email: u.email };
+          return acc;
+        }, {});
+      }
+      linkActs.forEach((a) => {
+        if (a.guest_id && a.user_id) {
+          const uid = String(a.user_id);
+          guestUserMap[a.guest_id] = usersById[uid] || { user_id: uid };
+        }
+      });
+    }
+  } catch (e) {
+    // ignore failures
+  }
+
+  // Load user info for sample registered user ids (new + returning)
+  const registeredUserMap = {};
+  try {
+    const User = require("../models/userModel");
+    const allRegIds = Array.from(
+      new Set([...registeredNewIds, ...registeredReturningIds])
+    );
+    if (allRegIds.length) {
+      const users = await User.find({ _id: { $in: allRegIds } }).select(
+        "_id username email"
+      );
+      users.forEach((u) => {
+        registeredUserMap[String(u._id)] = {
+          username: u.username,
+          email: u.email,
+        };
+      });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Events in window to classify add_to_cart and order_placed
+  const eventsInWindow = await Activity.find({
+    createdAt: { $gte: start },
+    event_type: { $in: ["add_to_cart", "order_placed"] },
+  }).lean();
+
+  const counts = {
+    unique: { add_to_cart: 0, order_placed: 0 },
+    visitors: { add_to_cart: 0, order_placed: 0 },
+    registered_new: { add_to_cart: 0, order_placed: 0 },
+    registered_returning: { add_to_cart: 0, order_placed: 0 },
+  };
+
+  eventsInWindow.forEach((e) => {
+    if (e.user_id) {
+      const uid = String(e.user_id);
+      const times = userTimesMap[uid] || {};
+      const first = times.first;
+      const second = times.second;
+      if (
+        first &&
+        first >= start &&
+        (!second || second.getTime() <= first.getTime() + THREE_HOURS)
+      ) {
+        counts.registered_new[e.event_type]++;
+      } else {
+        counts.registered_returning[e.event_type]++;
+      }
+    } else if (e.guest_id) {
+      const gid = e.guest_id;
+      const times = guestTimesMap[gid] || {};
+      const first = times.first;
+      const second = times.second;
+      if (
+        first &&
+        first >= start &&
+        (!second || second.getTime() <= first.getTime() + THREE_HOURS)
+      ) {
+        counts.unique[e.event_type]++;
+      } else {
+        counts.visitors[e.event_type]++;
+      }
+    }
+  });
+
+  res.status(200).json({
+    period: { start, end: now },
+    guests: {
+      unique_count: uniqueGuests,
+      returning_count: returningGuests,
+      unique_ids: uniqueGuestIds,
+      returning_ids: returningGuestIds,
+      user_map: guestUserMap,
+      breakdown: {
+        unique: counts.unique,
+        visitors: counts.visitors,
+      },
+    },
+    registered: {
+      active_count: activeUserIds.length,
+      new_count: registeredNew,
+      returning_count: registeredReturning,
+      new_ids: registeredNewIds,
+      returning_ids: registeredReturningIds,
+      user_map: registeredUserMap,
+      breakdown: {
+        new: counts.registered_new,
+        returning: counts.registered_returning,
+      },
+    },
+  });
+});
+
 // GET /api/analytics/cart?guest_id=... OR ?user_id=...
 // Returns cart items for the provided identifier (dashboard-only; protects via x-dashboard-secret header)
 const getCartForActivity = handler(async (req, res) => {
@@ -366,5 +645,6 @@ module.exports = {
   getEvents,
   getSummary,
   monthlyStats,
+  weeklyStats,
   getCartForActivity,
 };
