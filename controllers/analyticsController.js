@@ -481,6 +481,66 @@ const weeklyStats = handler(async (req, res) => {
     }
   });
 
+  // Attempt to resolve guest -> user mapping when a guest later signs up (best-effort)
+  const guestUserMap = {};
+  try {
+    const User = require("../models/userModel");
+    // For each sample guest id, try to find any activity record that later contains a user_id
+    const sampleGuestIds = [...uniqueGuestIds, ...returningGuestIds];
+    if (sampleGuestIds.length) {
+      // find activities for these guests where user_id exists
+      const linkActs = await Activity.find({
+        guest_id: { $in: sampleGuestIds },
+        user_id: { $ne: null },
+      })
+        .limit(500)
+        .lean();
+      const userIdsToLoad = Array.from(
+        new Set(linkActs.map((a) => String(a.user_id)).filter(Boolean))
+      );
+      let usersById = {};
+      if (userIdsToLoad.length) {
+        const users = await User.find({ _id: { $in: userIdsToLoad } }).select(
+          "_id username email"
+        );
+        usersById = users.reduce((acc, u) => {
+          acc[String(u._id)] = { username: u.username, email: u.email };
+          return acc;
+        }, {});
+      }
+      linkActs.forEach((a) => {
+        if (a.guest_id && a.user_id) {
+          const uid = String(a.user_id);
+          guestUserMap[a.guest_id] = usersById[uid] || { user_id: uid };
+        }
+      });
+    }
+  } catch (e) {
+    // ignore failures
+  }
+
+  // Load user info for sample registered user ids (new + returning)
+  const registeredUserMap = {};
+  try {
+    const User = require("../models/userModel");
+    const allRegIds = Array.from(
+      new Set([...registeredNewIds, ...registeredReturningIds])
+    );
+    if (allRegIds.length) {
+      const users = await User.find({ _id: { $in: allRegIds } }).select(
+        "_id username email"
+      );
+      users.forEach((u) => {
+        registeredUserMap[String(u._id)] = {
+          username: u.username,
+          email: u.email,
+        };
+      });
+    }
+  } catch (e) {
+    // ignore
+  }
+
   // Events in window to classify add_to_cart and order_placed
   const eventsInWindow = await Activity.find({
     createdAt: { $gte: start },
@@ -533,6 +593,7 @@ const weeklyStats = handler(async (req, res) => {
       returning_count: returningGuests,
       unique_ids: uniqueGuestIds,
       returning_ids: returningGuestIds,
+      user_map: guestUserMap,
       breakdown: {
         unique: counts.unique,
         visitors: counts.visitors,
@@ -544,6 +605,7 @@ const weeklyStats = handler(async (req, res) => {
       returning_count: registeredReturning,
       new_ids: registeredNewIds,
       returning_ids: registeredReturningIds,
+      user_map: registeredUserMap,
       breakdown: {
         new: counts.registered_new,
         returning: counts.registered_returning,
