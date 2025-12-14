@@ -7,6 +7,7 @@ const Cart = require("../models/cartModel");
 const { getClientIp } = require("../utils/getClientIp");
 const mongoose = require("mongoose");
 const Activity = require("../models/activityModel");
+const nodemailer = require("nodemailer");
 
 const createOrder = asyncHandler(async (req, res) => {
   console.log("createOrder - Request body:", req.body);
@@ -323,6 +324,226 @@ const createOrder = asyncHandler(async (req, res) => {
   } catch (err) {
     console.warn("createOrder - analytics log failed:", err?.message || err);
   }
+
+  // Send order confirmation email to admin and customer
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.MAIL_PORT),
+      secure: true,
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    // Build product list HTML
+    const productsHtml = validatedProducts
+      .map(
+        (vp) =>
+          `
+          <tr style="border-bottom: 1px solid #e0e0e0;">
+            <td style="padding: 12px; text-align: left;">${
+              vp.product.product_name || "Unknown"
+            }</td>
+            <td style="padding: 12px; text-align: center;">${
+              products.find(
+                (p) => String(p.product_id) === String(vp.product._id)
+              )?.quantity || 0
+            }</td>
+            <td style="padding: 12px; text-align: right;">Rs. ${(
+              vp.product.product_discounted_price || 0
+            ).toFixed(2)}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const emailHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>New Order Notification</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; }
+    .header { background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+    .content { padding: 20px; }
+    .order-details { background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .order-details p { margin: 8px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    .total-row { background: #f0f0f0; font-weight: bold; }
+    .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>🎉 New Order Received!</h2>
+    </div>
+    <div class="content">
+      <h3>Order Details</h3>
+      <div class="order-details">
+        <p><strong>Order ID:</strong> ${order._id}</p>
+        <p><strong>Customer Name:</strong> ${full_name}</p>
+        <p><strong>Email:</strong> ${order_email}</p>
+        <p><strong>Phone:</strong> ${phone_number}</p>
+        <p><strong>City:</strong> ${shippingCity || "N/A"}</p>
+        <p><strong>Shipping Address:</strong> ${shipping_address}</p>
+        <p><strong>Order Date:</strong> ${new Date().toLocaleString()}</p>
+      </div>
+
+      <h3>Products Ordered</h3>
+      <table>
+        <thead>
+          <tr style="background: #ffa500; color: white;">
+            <th style="padding: 12px; text-align: left;">Product Name</th>
+            <th style="padding: 12px; text-align: center;">Quantity</th>
+            <th style="padding: 12px; text-align: right;">Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${productsHtml}
+        </tbody>
+      </table>
+
+      <div class="order-details" style="background: #fff3cd;">
+        <p><strong>Subtotal:</strong> Rs. ${original_total.toFixed(2)}</p>
+        ${
+          discount_applied
+            ? `<p><strong>Discount:</strong> -Rs. ${(
+                original_total - subtotal_from_frontend
+              ).toFixed(2)}</p>`
+            : ""
+        }
+        <p><strong>Shipping:</strong> Rs. ${shipping_total.toFixed(2)}</p>
+        <p style="font-size: 16px; color: #ff8c00;"><strong>Total Amount:</strong> Rs. ${final_total.toFixed(
+          2
+        )}</p>
+      </div>
+
+      <p style="color: #666; margin-top: 15px;">
+        Thank you for using BZ Cart! This is an automated notification. Please do not reply to this email.
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 BZ Cart. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    // Send email to admin
+    const adminEmail = "zainmajeed129064@gmail.com";
+    await transporter.sendMail({
+      from: "bzcart <info@bzcart.store>",
+      to: adminEmail,
+      subject: `New Order #${order._id} from ${full_name}`,
+      html: emailHtml,
+    });
+
+    console.log("Order confirmation email sent to admin:", adminEmail);
+
+    // Send confirmation email to customer
+    const customerEmailHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Order Confirmation</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; }
+    .header { background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+    .content { padding: 20px; }
+    .order-details { background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .order-details p { margin: 8px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    .total-row { background: #f0f0f0; font-weight: bold; }
+    .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>✓ Order Confirmed!</h2>
+    </div>
+    <div class="content">
+      <p>Dear ${full_name},</p>
+      <p>Thank you for your order! We've received your order and it's being processed.</p>
+      
+      <h3>Your Order Details</h3>
+      <div class="order-details">
+        <p><strong>Order ID:</strong> ${order._id}</p>
+        <p><strong>Order Date:</strong> ${new Date().toLocaleString()}</p>
+        <p><strong>Delivery Address:</strong> ${shipping_address}, ${
+      shippingCity || ""
+    }</p>
+      </div>
+
+      <h3>Order Summary</h3>
+      <table>
+        <thead>
+          <tr style="background: #ffa500; color: white;">
+            <th style="padding: 12px; text-align: left;">Product</th>
+            <th style="padding: 12px; text-align: center;">Qty</th>
+            <th style="padding: 12px; text-align: right;">Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${productsHtml}
+        </tbody>
+      </table>
+
+      <div class="order-details" style="background: #e8f5e9; border: 1px solid #4caf50;">
+        <p><strong>Subtotal:</strong> Rs. ${original_total.toFixed(2)}</p>
+        ${
+          discount_applied
+            ? `<p><strong>Discount Applied:</strong> -Rs. ${(
+                original_total - subtotal_from_frontend
+              ).toFixed(2)}</p>`
+            : ""
+        }
+        <p><strong>Shipping Charge:</strong> Rs. ${shipping_total.toFixed(
+          2
+        )}</p>
+        <p style="font-size: 16px; color: #4caf50;"><strong>Total Payable:</strong> Rs. ${final_total.toFixed(
+          2
+        )}</p>
+      </div>
+
+      <p style="margin-top: 20px; color: #666;">
+        We'll send you tracking information as soon as your order ships. If you have any questions, feel free to contact our support team.
+      </p>
+      <p style="color: #666;">
+        <strong>Contact:</strong> support@bzcart.store | Phone: +92-XXX-XXXXXXX
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 BZ Cart. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    await transporter.sendMail({
+      from: "bzcart <info@bzcart.store>",
+      to: order_email,
+      subject: `Order Confirmation - ${order._id}`,
+      html: customerEmailHtml,
+    });
+
+    console.log("Order confirmation email sent to customer:", order_email);
+  } catch (emailErr) {
+    console.warn(
+      "Failed to send order notification email:",
+      emailErr?.message || emailErr
+    );
+    // Don't fail the order creation if email fails
+  }
+
   res.status(201).json(order);
 });
 
