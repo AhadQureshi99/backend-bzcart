@@ -325,44 +325,46 @@ const createOrder = asyncHandler(async (req, res) => {
     console.warn("createOrder - analytics log failed:", err?.message || err);
   }
 
-  // Send order confirmation email to admin and customer
-  try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST,
-      port: parseInt(process.env.MAIL_PORT),
-      secure: true,
-      auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    });
+  // Send order confirmation emails asynchronously (fire-and-forget)
+  // Don't await these - let them send in the background without blocking the response
+  (async () => {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.MAIL_HOST,
+        port: parseInt(process.env.MAIL_PORT),
+        secure: true,
+        auth: {
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASS,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      });
 
-    // Build product list HTML
-    const productsHtml = validatedProducts
-      .map(
-        (vp) =>
+      // Build product list HTML
+      const productsHtml = validatedProducts
+        .map(
+          (vp) =>
+            `
+            <tr style="border-bottom: 1px solid #e0e0e0;">
+              <td style="padding: 12px; text-align: left;">${
+                vp.product.product_name || "Unknown"
+              }</td>
+              <td style="padding: 12px; text-align: center;">${
+                products.find(
+                  (p) => String(p.product_id) === String(vp.product._id)
+                )?.quantity || 0
+              }</td>
+              <td style="padding: 12px; text-align: right;">Rs. ${(
+                vp.product.product_discounted_price || 0
+              ).toFixed(2)}</td>
+            </tr>
           `
-          <tr style="border-bottom: 1px solid #e0e0e0;">
-            <td style="padding: 12px; text-align: left;">${
-              vp.product.product_name || "Unknown"
-            }</td>
-            <td style="padding: 12px; text-align: center;">${
-              products.find(
-                (p) => String(p.product_id) === String(vp.product._id)
-              )?.quantity || 0
-            }</td>
-            <td style="padding: 12px; text-align: right;">Rs. ${(
-              vp.product.product_discounted_price || 0
-            ).toFixed(2)}</td>
-          </tr>
-        `
-      )
-      .join("");
+        )
+        .join("");
 
-    const emailHtml = `<!DOCTYPE html>
+      const emailHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -436,19 +438,26 @@ const createOrder = asyncHandler(async (req, res) => {
 </body>
 </html>`;
 
-    // Send email to admin
-    const adminEmail = "zainmajeed129064@gmail.com";
-    await transporter.sendMail({
-      from: "bzcart <info@bzcart.store>",
-      to: adminEmail,
-      subject: `New Order #${order._id} from ${full_name}`,
-      html: emailHtml,
-    });
+      // Send email to admin
+      const adminEmail = "zainmajeed129064@gmail.com";
+      transporter.sendMail(
+        {
+          from: "bzcart <info@bzcart.store>",
+          to: adminEmail,
+          subject: `New Order #${order._id} from ${full_name}`,
+          html: emailHtml,
+        },
+        (err, info) => {
+          if (err) {
+            console.warn("Failed to send admin email:", err?.message || err);
+          } else {
+            console.log("Order confirmation email sent to admin:", adminEmail);
+          }
+        }
+      );
 
-    console.log("Order confirmation email sent to admin:", adminEmail);
-
-    // Send confirmation email to customer
-    const customerEmailHtml = `<!DOCTYPE html>
+      // Send confirmation email to customer
+      const customerEmailHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -479,8 +488,8 @@ const createOrder = asyncHandler(async (req, res) => {
         <p><strong>Order ID:</strong> ${order._id}</p>
         <p><strong>Order Date:</strong> ${new Date().toLocaleString()}</p>
         <p><strong>Delivery Address:</strong> ${shipping_address}, ${
-      shippingCity || ""
-    }</p>
+        shippingCity || ""
+      }</p>
       </div>
 
       <h3>Order Summary</h3>
@@ -528,21 +537,31 @@ const createOrder = asyncHandler(async (req, res) => {
 </body>
 </html>`;
 
-    await transporter.sendMail({
-      from: "bzcart <info@bzcart.store>",
-      to: order_email,
-      subject: `Order Confirmation - ${order._id}`,
-      html: customerEmailHtml,
-    });
-
-    console.log("Order confirmation email sent to customer:", order_email);
-  } catch (emailErr) {
-    console.warn(
-      "Failed to send order notification email:",
-      emailErr?.message || emailErr
-    );
-    // Don't fail the order creation if email fails
-  }
+      transporter.sendMail(
+        {
+          from: "bzcart <info@bzcart.store>",
+          to: order_email,
+          subject: `Order Confirmation - ${order._id}`,
+          html: customerEmailHtml,
+        },
+        (err, info) => {
+          if (err) {
+            console.warn("Failed to send customer email:", err?.message || err);
+          } else {
+            console.log(
+              "Order confirmation email sent to customer:",
+              order_email
+            );
+          }
+        }
+      );
+    } catch (emailErr) {
+      console.warn(
+        "Failed to send order notification email:",
+        emailErr?.message || emailErr
+      );
+    }
+  })();
 
   res.status(201).json(order);
 });
