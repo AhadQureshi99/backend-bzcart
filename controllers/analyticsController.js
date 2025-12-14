@@ -328,14 +328,14 @@ const monthlyStats = handler(async (req, res) => {
         if (first && first >= monthStart && first < monthEnd) {
           if (!second || second.getTime() <= first.getTime() + THREE_HOURS) {
             uniqueGuests++;
-            if (uniqueGuestIds.length < 100) uniqueGuestIds.push(gid);
+            uniqueGuestIds.push(gid); // Store ALL unique guest ids
           } else {
             returningGuests++;
-            if (returningGuestIds.length < 100) returningGuestIds.push(gid);
+            returningGuestIds.push(gid); // Store ALL returning guest ids
           }
         } else if (first && first < monthStart) {
           returningGuests++;
-          if (returningGuestIds.length < 100) returningGuestIds.push(gid);
+          returningGuestIds.push(gid); // Store ALL returning guest ids
         }
       });
 
@@ -350,16 +350,14 @@ const monthlyStats = handler(async (req, res) => {
         if (first && first >= monthStart && first < monthEnd) {
           if (!second || second.getTime() <= first.getTime() + THREE_HOURS) {
             registeredNew++;
-            if (registeredNewIds.length < 100) registeredNewIds.push(uid);
+            registeredNewIds.push(uid); // Store ALL registered new ids
           } else {
             registeredReturning++;
-            if (registeredReturningIds.length < 100)
-              registeredReturningIds.push(uid);
+            registeredReturningIds.push(uid); // Store ALL registered returning ids
           }
         } else if (first && first < monthStart) {
           registeredReturning++;
-          if (registeredReturningIds.length < 100)
-            registeredReturningIds.push(uid);
+          registeredReturningIds.push(uid); // Store ALL registered returning ids
         }
       });
 
