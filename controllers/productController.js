@@ -7,6 +7,7 @@ const Category = require("../models/categoryModel");
 const User = require("../models/userModel");
 const mongoose = require("mongoose");
 const { getClientIp } = require("../utils/getClientIp");
+const wishlistModel = require("../models/wishlistModel");
 
 const addToCart = handler(async (req, res) => {
   const { product_id, selected_image, guestId, selected_size } = req.body;
@@ -1152,6 +1153,167 @@ const getReviews = handler(async (req, res) => {
   }
 });
 
+// Add to Wishlist
+const addToWishlist = handler(async (req, res) => {
+  const { product_id, selected_image, guestId, selected_size } = req.body;
+  const user_id = req.user?.id;
+
+  if (!product_id || !selected_image) {
+    res.status(400);
+    throw new Error("Product ID and selected image are required");
+  }
+
+  if (!user_id && !guestId) {
+    res.status(400);
+    throw new Error("User or guest ID required");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(product_id)) {
+    res.status(400);
+    throw new Error("Invalid product ID");
+  }
+
+  const product = await productModel.findById(product_id);
+  if (!product) {
+    res.status(404);
+    throw new Error("Product not found");
+  }
+
+  const query = user_id
+    ? {
+        user_id,
+        product_id,
+        selected_image,
+        selected_size: selected_size || null,
+      }
+    : {
+        guest_id: guestId,
+        product_id,
+        selected_image,
+        selected_size: selected_size || null,
+      };
+
+  const existing = await wishlistModel.findOne(query);
+  if (existing) {
+    return res.status(200).json({ message: "Already in wishlist" });
+  }
+
+  const wishlistItem = await wishlistModel.create({
+    user_id: user_id || null,
+    guest_id: user_id ? null : guestId,
+    product_id,
+    selected_image,
+    selected_size: selected_size || null,
+  });
+
+  // Populate and return full wishlist
+  const wishlist = await wishlistModel
+    .find(user_id ? { user_id } : { guest_id: guestId })
+    .populate("product_id");
+
+  // Normalize selected_image (same logic as cart)
+  const normalizedWishlist = wishlist.map((item) => {
+    const prod = item.product_id || {};
+    let selected = item.selected_image;
+    if (
+      !selected ||
+      !Array.isArray(prod.product_images) ||
+      !prod.product_images.includes(selected)
+    ) {
+      selected = prod.product_images?.[0] || selected;
+    }
+    return { ...item.toObject(), selected_image: selected, product_id: prod };
+  });
+
+  res.status(201).json(normalizedWishlist);
+});
+
+// Remove from Wishlist
+const removeFromWishlist = handler(async (req, res) => {
+  const { product_id, selected_image, guestId, selected_size } = req.body;
+  const user_id = req.user?.id;
+
+  if (!product_id || !selected_image) {
+    res.status(400);
+    throw new Error("Product ID and selected image are required");
+  }
+
+  if (!user_id && !guestId) {
+    res.status(400);
+    throw new Error("User or guest ID required");
+  }
+
+  const query = user_id
+    ? {
+        user_id,
+        product_id,
+        selected_image,
+        selected_size: selected_size || null,
+      }
+    : {
+        guest_id: guestId,
+        product_id,
+        selected_image,
+        selected_size: selected_size || null,
+      };
+
+  const result = await wishlistModel.deleteOne(query);
+
+  if (result.deletedCount === 0) {
+    res.status(404);
+    throw new Error("Item not found in wishlist");
+  }
+
+  const wishlist = await wishlistModel
+    .find(user_id ? { user_id } : { guest_id: guestId })
+    .populate("product_id");
+
+  const normalizedWishlist = wishlist.map((item) => {
+    const prod = item.product_id || {};
+    let selected = item.selected_image;
+    if (
+      !selected ||
+      !Array.isArray(prod.product_images) ||
+      !prod.product_images.includes(selected)
+    ) {
+      selected = prod.product_images?.[0] || selected;
+    }
+    return { ...item.toObject(), selected_image: selected, product_id: prod };
+  });
+
+  res.status(200).json(normalizedWishlist);
+});
+
+// Get My Wishlist
+const getMyWishlist = handler(async (req, res) => {
+  const user_id = req.user?.id;
+  const { guestId } = req.query;
+
+  if (!user_id && !guestId) {
+    res.status(400);
+    throw new Error("User or guest ID required");
+  }
+
+  const query = user_id ? { user_id } : { guest_id: guestId };
+
+  let wishlist = await wishlistModel.find(query).populate("product_id");
+
+  wishlist = wishlist.map((item) => {
+    const prod = item.product_id || {};
+    let selected = item.selected_image;
+    if (
+      !selected ||
+      !Array.isArray(prod.product_images) ||
+      !prod.product_images.includes(selected)
+    ) {
+      selected = prod.product_images?.[0] || selected;
+    }
+    return { ...item.toObject(), selected_image: selected, product_id: prod };
+  });
+
+  res.status(200).json(wishlist);
+});
+
 module.exports = {
   createProduct,
   getProducts,
@@ -1165,4 +1327,7 @@ module.exports = {
   clearCart,
   submitReview,
   getReviews,
+  getMyWishlist,
+  removeFromWishlist,
+  addToWishlist,
 };
