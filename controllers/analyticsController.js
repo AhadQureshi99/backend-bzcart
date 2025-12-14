@@ -216,79 +216,193 @@ const logEvent = handler(async (req, res) => {
   return res.status(201).json(doc);
 });
 
-// GET /api/analytics/monthly - simple last-30-days metrics (page_views, add_to_cart, order_placed)
+// GET /api/analytics/monthly - monthly breakdown with user cohorts (unique/returning/registered)
 const monthlyStats = handler(async (req, res) => {
   const now = new Date();
-  const start = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 30); // 30 days ago
+  // Go back 12 months
+  const start = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 365);
+  const THREE_HOURS = 1000 * 60 * 60 * 3;
 
-  // counts per day for the last 30 days
-  const pipeline = [
+  // Collect ordered timestamps per guest (all time, not just window)
+  const guestTimesAgg = await Activity.aggregate([
+    { $match: { guest_id: { $exists: true, $ne: null } } },
+    { $sort: { guest_id: 1, createdAt: 1 } },
+    { $group: { _id: "$guest_id", times: { $push: "$createdAt" } } },
+    {
+      $project: {
+        first: { $arrayElemAt: ["$times", 0] },
+        second: { $arrayElemAt: ["$times", 1] },
+      },
+    },
+  ]);
+  const guestTimesMap = {};
+  guestTimesAgg.forEach((g) => {
+    guestTimesMap[g._id] = {
+      first: g.first ? new Date(g.first) : null,
+      second: g.second ? new Date(g.second) : null,
+    };
+  });
+
+  // For registered users: similar collection
+  const userTimesAgg = await Activity.aggregate([
+    { $match: { user_id: { $exists: true, $ne: null } } },
+    { $sort: { user_id: 1, createdAt: 1 } },
+    { $group: { _id: "$user_id", times: { $push: "$createdAt" } } },
+    {
+      $project: {
+        first: { $arrayElemAt: ["$times", 0] },
+        second: { $arrayElemAt: ["$times", 1] },
+      },
+    },
+  ]);
+  const userTimesMap = {};
+  userTimesAgg.forEach((u) => {
+    userTimesMap[String(u._id)] = {
+      first: u.first ? new Date(u.first) : null,
+      second: u.second ? new Date(u.second) : null,
+    };
+  });
+
+  // Get all activities in 12-month window, grouped by month
+  const monthlyAgg = await Activity.aggregate([
     { $match: { createdAt: { $gte: start } } },
     {
       $project: {
-        day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+        month: {
+          $dateToString: { format: "%Y-%m", date: "$createdAt" },
+        },
+        guest_id: 1,
+        user_id: 1,
         event_type: 1,
       },
     },
-    {
-      $group: {
-        _id: { day: "$day", event: "$event_type" },
-        count: { $sum: 1 },
-      },
-    },
-  ];
+  ]);
 
-  const agg = await Activity.aggregate(pipeline);
-
-  // reduce into easy maps
-  const byDay = {};
-  agg.forEach((r) => {
-    const d = r._id.day;
-    const e = r._id.event;
-    byDay[d] = byDay[d] || { page_view: 0, add_to_cart: 0, order_placed: 0 };
-    if (e === "page_view") byDay[d].page_view = r.count;
-    if (e === "add_to_cart") byDay[d].add_to_cart = r.count;
-    if (e === "order_placed") byDay[d].order_placed = r.count;
+  // Group by month and collect unique guests/users per month
+  const monthlyData = {};
+  monthlyAgg.forEach((rec) => {
+    const month = rec.month;
+    if (!monthlyData[month]) {
+      monthlyData[month] = {
+        guests: new Set(),
+        users: new Set(),
+        add_to_cart: 0,
+        order_placed: 0,
+        page_view: 0,
+      };
+    }
+    if (rec.guest_id) monthlyData[month].guests.add(rec.guest_id);
+    if (rec.user_id) monthlyData[month].users.add(String(rec.user_id));
+    if (rec.event_type === "add_to_cart") monthlyData[month].add_to_cart++;
+    if (rec.event_type === "order_placed") monthlyData[month].order_placed++;
+    if (rec.event_type === "page_view") monthlyData[month].page_view++;
   });
 
-  // totals for last 30 days
-  const totals = { page_view: 0, add_to_cart: 0, order_placed: 0 };
-  Object.values(byDay).forEach((v) => {
-    totals.page_view += v.page_view || 0;
-    totals.add_to_cart += v.add_to_cart || 0;
-    totals.order_placed += v.order_placed || 0;
-  });
+  // For each month, classify guests and users by cohort (unique/returning/registered new/registered returning)
+  const monthlyBreakdown = {};
+  Object.keys(monthlyData)
+    .sort()
+    .forEach((month) => {
+      const data = monthlyData[month];
+      const guestIds = Array.from(data.guests);
+      const userIds = Array.from(data.users);
 
-  // compute unique sessions (visitors) per day
-  const pvPipeline = [
-    { $match: { createdAt: { $gte: start }, event_type: "page_view" } },
-    {
-      $project: {
-        day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-        session_id: "$session_id",
-      },
-    },
-    { $group: { _id: { day: "$day", session: "$session_id" } } },
-    { $group: { _id: "$_id.day", uniqueSessions: { $sum: 1 } } },
-  ];
-  const pvAgg = await Activity.aggregate(pvPipeline);
-  const visitorsByDay = {};
-  pvAgg.forEach((r) => {
-    visitorsByDay[r._id] = r.uniqueSessions || 0;
-  });
+      let uniqueGuests = 0;
+      let returningGuests = 0;
+      let registeredNew = 0;
+      let registeredReturning = 0;
+      const uniqueGuestIds = [];
+      const returningGuestIds = [];
+      const registeredNewIds = [];
+      const registeredReturningIds = [];
 
-  // add visitors per day into byDay structure
-  Object.keys(byDay).forEach((d) => {
-    byDay[d].visitors = visitorsByDay[d] || 0;
-  });
+      guestIds.forEach((gid) => {
+        const times = guestTimesMap[gid] || {};
+        const first = times.first;
+        const second = times.second;
+        // if first seen in this month and no second after 3 hours -> unique
+        const monthStart = new Date(month + "-01");
+        const monthEnd = new Date(
+          new Date(monthStart).setMonth(monthStart.getMonth() + 1)
+        );
+        if (first && first >= monthStart && first < monthEnd) {
+          if (!second || second.getTime() <= first.getTime() + THREE_HOURS) {
+            uniqueGuests++;
+            if (uniqueGuestIds.length < 100) uniqueGuestIds.push(gid);
+          } else {
+            returningGuests++;
+            if (returningGuestIds.length < 100) returningGuestIds.push(gid);
+          }
+        } else if (first && first < monthStart) {
+          returningGuests++;
+          if (returningGuestIds.length < 100) returningGuestIds.push(gid);
+        }
+      });
 
-  // include visitors total
-  totals.visitors = Object.values(byDay).reduce(
-    (s, v) => s + (v.visitors || 0),
-    0
-  );
+      userIds.forEach((uid) => {
+        const times = userTimesMap[uid] || {};
+        const first = times.first;
+        const second = times.second;
+        const monthStart = new Date(month + "-01");
+        const monthEnd = new Date(
+          new Date(monthStart).setMonth(monthStart.getMonth() + 1)
+        );
+        if (first && first >= monthStart && first < monthEnd) {
+          if (!second || second.getTime() <= first.getTime() + THREE_HOURS) {
+            registeredNew++;
+            if (registeredNewIds.length < 100) registeredNewIds.push(uid);
+          } else {
+            registeredReturning++;
+            if (registeredReturningIds.length < 100)
+              registeredReturningIds.push(uid);
+          }
+        } else if (first && first < monthStart) {
+          registeredReturning++;
+          if (registeredReturningIds.length < 100)
+            registeredReturningIds.push(uid);
+        }
+      });
 
-  res.status(200).json({ totals, byDay });
+      monthlyBreakdown[month] = {
+        unique_guests: uniqueGuests,
+        returning_guests: returningGuests,
+        registered_new: registeredNew,
+        registered_returning: registeredReturning,
+        unique_guest_ids: uniqueGuestIds,
+        returning_guest_ids: returningGuestIds,
+        registered_new_ids: registeredNewIds,
+        registered_returning_ids: registeredReturningIds,
+        add_to_cart: data.add_to_cart,
+        order_placed: data.order_placed,
+        page_view: data.page_view,
+      };
+    });
+
+  // Load user info for sample registered user ids (new + returning)
+  const registeredUserMap = {};
+  try {
+    const User = require("../models/userModel");
+    const allRegIds = Object.values(monthlyBreakdown)
+      .flatMap((m) => [...m.registered_new_ids, ...m.registered_returning_ids])
+      .filter((id, idx, arr) => arr.indexOf(id) === idx); // unique
+    if (allRegIds.length) {
+      const users = await User.find({ _id: { $in: allRegIds } }).select(
+        "_id username email"
+      );
+      users.forEach((u) => {
+        registeredUserMap[String(u._id)] = {
+          username: u.username,
+          email: u.email,
+        };
+      });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  res
+    .status(200)
+    .json({ breakdown: monthlyBreakdown, user_map: registeredUserMap });
 });
 
 // GET /api/analytics/events
